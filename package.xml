@@ -7,7 +7,7 @@
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="threeman1@snu.ac.kr">dyros</maintainer>
+  <maintainer email="threeman1@todo.todo">dyros</maintainer>
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
@@ -60,13 +60,13 @@
   <exec_depend>tocabi_msgs</exec_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>roscpp</build_depend>
-  <build_depend>bolt_lib</build_depend>
+  <build_depend>dyras_bolt_lib</build_depend>
   <build_depend>dyros_bolt_msgs</build_depend>
   <build_export_depend>roscpp</build_export_depend>
-  <build_export_depend>bolt_lib</build_export_depend>
+  <build_export_depend>dyros_bolt_lib</build_export_depend>
   <build_export_depend>dyros_bolt_msgs</build_export_depend>
   <exec_depend>roscpp</exec_depend>
-  <exec_depend>bolt_lib</exec_depend>
+  <exec_depend>dyros_bolt_lib</exec_depend>
   <exec_depend>dyros_bolt_msgs</exec_depend>
 
 
