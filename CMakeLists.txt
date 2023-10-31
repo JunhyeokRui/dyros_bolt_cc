@@ -1,19 +1,19 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(bolt_cc)
+project(dyros_bolt_cc)
 
 add_compile_options(-std=c++17 -Ofast)
 
 find_package(catkin REQUIRED
 roscpp
-tocabi_lib
-tocabi_msgs
+dyros_bolt_lib
+dyros_bolt_msgs
 eigen_conversions
 )
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ${PROJECT_NAME}
-  CATKIN_DEPENDS tocabi_lib tocabi_msgs
+  CATKIN_DEPENDS dyros_bolt_lib dyros_bolt_msgs
 # DEPENDS system_lib
 )
 
