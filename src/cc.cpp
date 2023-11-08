@@ -2,7 +2,7 @@
 #include <rbdl/Kinematics.h>
 #include <yaml-cpp/yaml.h>
 
-using namespace TOCABI;
+using namespace DYROS_BOLT;
 
 CustomController::CustomController(RobotData &rd) : rd_(rd) //, wbc_(dc.wbc_)
 {
@@ -37,11 +37,11 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     rl_action_.setZero();
 
 
-    string cur_path = "/home/dyros/tocabi_ws/src/tocabi_cc/";
+    string cur_path = "/home/dyros/bolt_ws/src/dyros_bolt_cc/";
 
     if (is_on_robot_)
     {
-        cur_path = "/home/dyros/catkin_ws/src/tocabi_cc/";
+        cur_path = "/home/dyros/catkin_ws/src/dyros_bolt_cc/";
     }
     std::ifstream file[14];
     file[0].open(cur_path+"weight/mlp_extractor_policy_net_0_weight.txt", std::ios::in);
@@ -606,7 +606,7 @@ void CustomController::computeSlow() //rui main
                 YAML::Node node = YAML::LoadFile("/home/dyros/catkin_ws/src/tocabi_cc/include/delay_config.yaml");
                 // auto delay = node["delay"];
                 auto action_delay_ = node["delay"]["action"].as<int>();
-                auto observation_delay_ = node["delay"]["observation"].as<int>();
+                auto observation_delay_ = node["delay"]å["observation"].as<int>();
 
                 action_delay = action_delay_;
                 observation_delay = observation_delay_;
