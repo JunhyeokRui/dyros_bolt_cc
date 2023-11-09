@@ -43,15 +43,20 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     {
         cur_path = "/home/dyros/catkin_ws/src/dyros_bolt_cc/policy2txt/result/";
     }
-    std::ifstream file[14];
+    std::ifstream file[15];
     file[0].open(cur_path+"weights/actor.2.weight.txt", std::ios::in);
     file[1].open(cur_path+"weights/actor.2.bias.txt", std::ios::in);
     file[2].open(cur_path+"weights/actor.4.weight.txt", std::ios::in);
     file[3].open(cur_path+"weights/actor.4.bias.txt", std::ios::in);
     file[4].open(cur_path+"weights/actor.6.weight.txt", std::ios::in); //rui - action weight
     file[5].open(cur_path+"weights/actor.6.bias.txt", std::ios::in); //rui - action bias
-    file[6].open(cur_path+"weights/obs_mean_fixed.txt", std::ios::in);
-    file[7].open(cur_path+"weights/obs_variance_fixed.txt", std::ios::in);
+
+    file[6].open(cur_path+"weights/actor.0.weight.txt", std::ios::in); 
+    file[7].open(cur_path+"weights/actor.0.bias.txt", std::ios::in); 
+
+    // file[6].open(cur_path+"weights/obs_mean_fixed.txt", std::ios::in);
+    // file[7].open(cur_path+"weights/obs_variance_fixed.txt", std::ios::in);
+
     file[8].open(cur_path+"weights/critic.2.weight.txt", std::ios::in);
     file[9].open(cur_path+"weights/critic.2.bias.txt", std::ios::in);
     file[10].open(cur_path+"weights/critic.4.weight.txt", std::ios::in);
@@ -59,6 +64,8 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     file[12].open(cur_path+"weights/critic.6.weight.txt", std::ios::in); //rui - value weight
     file[13].open(cur_path+"weights/critic.6.bias.txt", std::ios::in); //rui - value bias
 
+    file[14].open(cur_path+"weights/critic.0.weight.txt", std::ios::in); 
+    file[15].open(cur_path+"weights/critic.0.bias.txt", std::ios::in); 
 
     if(!file[0].is_open())
     {
@@ -278,6 +285,38 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     row = 0;
     col = 0;
     while(!file[13].eof() && row != value_net_b_.rows())
+    {
+        file[13] >> temp;
+        if(temp != '\n')
+        {
+            value_net_b_(row, col) = temp;
+            col ++;
+            if (col == value_net_b_.cols())
+            {
+                col = 0;
+                row ++;
+            }
+        }
+    }
+    row = 0;
+    col = 0;
+    while(!file[14].eof() && row != value_net_b_.rows())
+    {
+        file[13] >> temp;
+        if(temp != '\n')
+        {
+            value_net_b_(row, col) = temp;
+            col ++;
+            if (col == value_net_b_.cols())
+            {
+                col = 0;
+                row ++;
+            }
+        }
+    }
+    row = 0;
+    col = 0;
+    while(!file[15].eof() && row != value_net_b_.rows())
     {
         file[13] >> temp;
         if(temp != '\n')
