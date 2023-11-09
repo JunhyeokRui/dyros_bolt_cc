@@ -37,27 +37,27 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     rl_action_.setZero();
 
 
-    string cur_path = "/home/dyros/bolt_ws/src/dyros_bolt_cc/";
+    string cur_path = "/home/dyros/bolt_ws/src/dyros_bolt_cc/policy2txt/result/";
 
     if (is_on_robot_)
     {
-        cur_path = "/home/dyros/catkin_ws/src/dyros_bolt_cc/";
+        cur_path = "/home/dyros/catkin_ws/src/dyros_bolt_cc/policy2txt/result/";
     }
     std::ifstream file[14];
-    file[0].open(cur_path+"weight/mlp_extractor_policy_net_0_weight.txt", std::ios::in);
-    file[1].open(cur_path+"weight/mlp_extractor_policy_net_0_bias.txt", std::ios::in);
-    file[2].open(cur_path+"weight/mlp_extractor_policy_net_2_weight.txt", std::ios::in);
-    file[3].open(cur_path+"weight/mlp_extractor_policy_net_2_bias.txt", std::ios::in);
-    file[4].open(cur_path+"weight/action_net_weight.txt", std::ios::in);
-    file[5].open(cur_path+"weight/action_net_bias.txt", std::ios::in);
-    file[6].open(cur_path+"weight/obs_mean_fixed.txt", std::ios::in);
-    file[7].open(cur_path+"weight/obs_variance_fixed.txt", std::ios::in);
-    file[8].open(cur_path+"weight/mlp_extractor_value_net_0_weight.txt", std::ios::in);
-    file[9].open(cur_path+"weight/mlp_extractor_value_net_0_bias.txt", std::ios::in);
-    file[10].open(cur_path+"weight/mlp_extractor_value_net_2_weight.txt", std::ios::in);
-    file[11].open(cur_path+"weight/mlp_extractor_value_net_2_bias.txt", std::ios::in);
-    file[12].open(cur_path+"weight/value_net_weight.txt", std::ios::in);
-    file[13].open(cur_path+"weight/value_net_bias.txt", std::ios::in);
+    file[0].open(cur_path+"weights/actor.2.weight.txt", std::ios::in);
+    file[1].open(cur_path+"weights/actor.2.bias.txt", std::ios::in);
+    file[2].open(cur_path+"weights/actor.4.weight.txt", std::ios::in);
+    file[3].open(cur_path+"weights/actor.4.bias.txt", std::ios::in);
+    file[4].open(cur_path+"weights/actor.6.weight.txt", std::ios::in); //rui - action weight
+    file[5].open(cur_path+"weights/actor.6.bias.txt", std::ios::in); //rui - action bias
+    file[6].open(cur_path+"weights/obs_mean_fixed.txt", std::ios::in);
+    file[7].open(cur_path+"weights/obs_variance_fixed.txt", std::ios::in);
+    file[8].open(cur_path+"weights/critic.2.weight.txt", std::ios::in);
+    file[9].open(cur_path+"weights/critic.2.bias.txt", std::ios::in);
+    file[10].open(cur_path+"weights/critic.4.weight.txt", std::ios::in);
+    file[11].open(cur_path+"weights/critic.4.bias.txt", std::ios::in);
+    file[12].open(cur_path+"weights/critic.6.weight.txt", std::ios::in); //rui - value weight
+    file[13].open(cur_path+"weights/critic.6.bias.txt", std::ios::in); //rui - value bias
 
 
     if(!file[0].is_open())
