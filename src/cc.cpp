@@ -43,13 +43,25 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     {
         cur_path = "/home/dyros/catkin_ws/src/tocabi_cc/";
     }
-    std::ifstream file[6];
-    file[0].open(cur_path+"weight/0_weight.txt", std::ios::in);
-    file[1].open(cur_path+"weight/0_bias.txt", std::ios::in);
-    file[2].open(cur_path+"weight/2_weight.txt", std::ios::in);
-    file[3].open(cur_path+"weight/2_bias.txt", std::ios::in);
-    file[4].open(cur_path+"weight/4_weight.txt", std::ios::in);
-    file[5].open(cur_path+"weight/4_bias.txt", std::ios::in);
+    std::ifstream file[18];
+    file[0].open(cur_path+"weight/actor_0_weight.txt", std::ios::in);
+    file[1].open(cur_path+"weight/actor_0_bias.txt", std::ios::in);
+    file[2].open(cur_path+"weight/actor_2_weight.txt", std::ios::in);
+    file[3].open(cur_path+"weight/actor_2_bias.txt", std::ios::in);
+    file[4].open(cur_path+"weight/actor_4_weight.txt", std::ios::in);
+    file[5].open(cur_path+"weight/actor_4_bias.txt", std::ios::in);
+    file[6].open(cur_path+"weight/actor_6_weight.txt", std::ios::in);
+    file[7].open(cur_path+"weight/actor_6_bias.txt", std::ios::in);
+    file[8].open(cur_path+"weight/critic_0_weight.txt", std::ios::in);
+    file[9].open(cur_path+"weight/critic_0_bias.txt", std::ios::in);
+    file[10].open(cur_path+"weight/critic_2_weight.txt", std::ios::in);
+    file[11].open(cur_path+"weight/critic_2_bias.txt", std::ios::in);
+    file[12].open(cur_path+"weight/critic_4_weight.txt", std::ios::in);
+    file[13].open(cur_path+"weight/critic_4_bias.txt", std::ios::in);
+    file[14].open(cur_path+"weight/critic_6_weight.txt", std::ios::in);
+    file[15].open(cur_path+"weight/critic_6_bias.txt", std::ios::in);
+    file[16].open(cur_path+"weight/obs_mean_fixed.txt", std::ios::in);
+    file[17].open(cur_path+"weight/obs_variance_fixed.txt", std::ios::in);
     
 
     if(!file[0].is_open())
@@ -83,7 +95,6 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     float temp;
     int row = 0;
     int col = 0;
-
     while(!file[0].eof() && row != policy_net_w0_.rows())
     {
         file[0] >> temp;
@@ -148,9 +159,41 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     }
     row = 0;
     col = 0;
-    while(!file[4].eof() && row != action_net_w_.rows())
+    while(!file[4].eof() && row != policy_net_w4_.rows())
     {
         file[4] >> temp;
+        if(temp != '\n')
+        {
+            policy_net_w4_(row, col) = temp;
+            col ++;
+            if (col == policy_net_w4_.cols())
+            {
+                col = 0;
+                row ++;
+            }
+        }
+    }
+    row = 0;
+    col = 0;
+    while(!file[5].eof() && row != policy_net_b4_.rows())
+    {
+        file[5] >> temp;
+        if(temp != '\n')
+        {
+            policy_net_b4_(row, col) = temp;
+            col ++;
+            if (col == policy_net_b4_.cols())
+            {
+                col = 0;
+                row ++;
+            }
+        }
+    }
+    row = 0;
+    col = 0;
+    while(!file[6].eof() && row != action_net_w_.rows())
+    {
+        file[6] >> temp;
         if(temp != '\n')
         {
             action_net_w_(row, col) = temp;
@@ -164,46 +207,14 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     }
     row = 0;
     col = 0;
-    while(!file[5].eof() && row != action_net_b_.rows())
+    while(!file[7].eof() && row != action_net_b_.rows())
     {
-        file[5] >> temp;
+        file[7] >> temp;
         if(temp != '\n')
         {
             action_net_b_(row, col) = temp;
             col ++;
             if (col == action_net_b_.cols())
-            {
-                col = 0;
-                row ++;
-            }
-        }
-    }
-    row = 0;
-    col = 0;
-    while(!file[6].eof() && row != state_mean_.rows())
-    {
-        file[6] >> temp;
-        if(temp != '\n')
-        {
-            state_mean_(row, col) = temp;
-            col ++;
-            if (col == state_mean_.cols())
-            {
-                col = 0;
-                row ++;
-            }
-        }
-    }
-    row = 0;
-    col = 0;
-    while(!file[7].eof() && row != state_var_.rows())
-    {
-        file[7] >> temp;
-        if(temp != '\n')
-        {
-            state_var_(row, col) = temp;
-            col ++;
-            if (col == state_var_.cols())
             {
                 col = 0;
                 row ++;
@@ -276,9 +287,41 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     }
     row = 0;
     col = 0;
-    while(!file[12].eof() && row != value_net_w_.rows())
+    while(!file[12].eof() && row != value_net_w4_.rows())
     {
         file[12] >> temp;
+        if(temp != '\n')
+        {
+            value_net_w4_(row, col) = temp;
+            col ++;
+            if (col == value_net_w4_.cols())
+            {
+                col = 0;
+                row ++;
+            }
+        }
+    }
+    row = 0;
+    col = 0;
+    while(!file[13].eof() && row != value_net_b4_.rows())
+    {
+        file[13] >> temp;
+        if(temp != '\n')
+        {
+            value_net_b4_(row, col) = temp;
+            col ++;
+            if (col == value_net_b4_.cols())
+            {
+                col = 0;
+                row ++;
+            }
+        }
+    }
+    row = 0;
+    col = 0;
+    while(!file[14].eof() && row != value_net_w_.rows())
+    {
+        file[14] >> temp;
         if(temp != '\n')
         {
             value_net_w_(row, col) = temp;
@@ -292,9 +335,9 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     }
     row = 0;
     col = 0;
-    while(!file[13].eof() && row != value_net_b_.rows())
+    while(!file[15].eof() && row != value_net_b_.rows())
     {
-        file[13] >> temp;
+        file[15] >> temp;
         if(temp != '\n')
         {
             value_net_b_(row, col) = temp;
@@ -306,6 +349,39 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
             }
         }
     }
+    row = 0;
+    col = 0;
+    while(!file[16].eof() && row != state_mean_.rows())
+    {
+        file[16] >> temp;
+        if(temp != '\n')
+        {
+            state_mean_(row, col) = temp;
+            col ++;
+            if (col == state_mean_.cols())
+            {
+                col = 0;
+                row ++;
+            }
+        }
+    }
+    row = 0;
+    col = 0;
+    while(!file[17].eof() && row != state_var_.rows())
+    {
+        file[17] >> temp;
+        if(temp != '\n')
+        {
+            state_var_(row, col) = temp;
+            col ++;
+            if (col == state_var_.cols())
+            {
+                col = 0;
+                row ++;
+            }
+        }
+    }
+    
 }
 
 void CustomController::initVariable() //rui 변수 초기화
