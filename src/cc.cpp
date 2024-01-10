@@ -12,11 +12,11 @@ CustomController::CustomController(RobotData &rd) : rd_(rd) //, wbc_(dc.wbc_)
     {
         if (is_on_robot_)
         {
-            writeFile.open("/home/dyros/catkin_ws/src/tocabi_cc/result/iserdata/data.csv", std::ofstream::out | std::ofstream::app);
+            writeFile.open("/home/dyros/dyros_bolt_ws/src/dyros_bolt_cc/result/data.csv", std::ofstream::out | std::ofstream::app);
         }
         else
         {
-            writeFile.open("/home/dyros/tocabi_ws/src/tocabi_cc/result/iserdata/data_125_.csv", std::ofstream::out | std::ofstream::app);
+            writeFile.open("/home/dyros/dyros_bolt_ws/src/dyros_bolt_cc/result/data.csv", std::ofstream::out | std::ofstream::app);
         }
         writeFile << std::fixed << std::setprecision(8);
     }
@@ -37,40 +37,48 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     rl_action_.setZero();
 
 
-    string cur_path = "/home/dyros/bolt_ws/src/dyros_bolt_cc/policy2txt/result/";
+    string cur_path = "/home/kim/tocabi_ws/src/tocabi_cc/";
 
     if (is_on_robot_)
     {
-        cur_path = "/home/dyros/catkin_ws/src/dyros_bolt_cc/policy2txt/result/";
+        cur_path = "/home/dyros/catkin_ws/src/tocabi_cc/";
     }
-    std::ifstream file[15];
-    file[0].open(cur_path+"weights/actor.2.weight.txt", std::ios::in);
-    file[1].open(cur_path+"weights/actor.2.bias.txt", std::ios::in);
-    file[2].open(cur_path+"weights/actor.4.weight.txt", std::ios::in);
-    file[3].open(cur_path+"weights/actor.4.bias.txt", std::ios::in);
-    file[4].open(cur_path+"weights/actor.6.weight.txt", std::ios::in); //rui - action weight
-    file[5].open(cur_path+"weights/actor.6.bias.txt", std::ios::in); //rui - action bias
-
-    file[6].open(cur_path+"weights/actor.0.weight.txt", std::ios::in); 
-    file[7].open(cur_path+"weights/actor.0.bias.txt", std::ios::in); 
-
-    // file[6].open(cur_path+"weights/obs_mean_fixed.txt", std::ios::in);
-    // file[7].open(cur_path+"weights/obs_variance_fixed.txt", std::ios::in);
-
-    file[8].open(cur_path+"weights/critic.2.weight.txt", std::ios::in);
-    file[9].open(cur_path+"weights/critic.2.bias.txt", std::ios::in);
-    file[10].open(cur_path+"weights/critic.4.weight.txt", std::ios::in);
-    file[11].open(cur_path+"weights/critic.4.bias.txt", std::ios::in);
-    file[12].open(cur_path+"weights/critic.6.weight.txt", std::ios::in); //rui - value weight
-    file[13].open(cur_path+"weights/critic.6.bias.txt", std::ios::in); //rui - value bias
-
-    file[14].open(cur_path+"weights/critic.0.weight.txt", std::ios::in); 
-    file[15].open(cur_path+"weights/critic.0.bias.txt", std::ios::in); 
+    std::ifstream file[6];
+    file[0].open(cur_path+"weight/0_weight.txt", std::ios::in);
+    file[1].open(cur_path+"weight/0_bias.txt", std::ios::in);
+    file[2].open(cur_path+"weight/2_weight.txt", std::ios::in);
+    file[3].open(cur_path+"weight/2_bias.txt", std::ios::in);
+    file[4].open(cur_path+"weight/4_weight.txt", std::ios::in);
+    file[5].open(cur_path+"weight/4_bias.txt", std::ios::in);
+    
 
     if(!file[0].is_open())
     {
-        std::cout<<"Can not find the weight file"<<std::endl;
+        std::cout << "CAN NOT FIND THE WEIGHT FILE" << std::endl;
     }
+
+
+    // std::ifstream file[14];
+    // file[0].open(cur_path+"weight/mlp_extractor_policy_net_0_weight.txt", std::ios::in);
+    // file[1].open(cur_path+"weight/mlp_extractor_policy_net_0_bias.txt", std::ios::in);
+    // file[2].open(cur_path+"weight/mlp_extractor_policy_net_2_weight.txt", std::ios::in);
+    // file[3].open(cur_path+"weight/mlp_extractor_policy_net_2_bias.txt", std::ios::in);
+    // file[4].open(cur_path+"weight/action_net_weight.txt", std::ios::in);
+    // file[5].open(cur_path+"weight/action_net_bias.txt", std::ios::in);
+    // file[6].open(cur_path+"weight/obs_mean_fixed.txt", std::ios::in);
+    // file[7].open(cur_path+"weight/obs_variance_fixed.txt", std::ios::in);
+    // file[8].open(cur_path+"weight/mlp_extractor_value_net_0_weight.txt", std::ios::in);
+    // file[9].open(cur_path+"weight/mlp_extractor_value_net_0_bias.txt", std::ios::in);
+    // file[10].open(cur_path+"weight/mlp_extractor_value_net_2_weight.txt", std::ios::in);
+    // file[11].open(cur_path+"weight/mlp_extractor_value_net_2_bias.txt", std::ios::in);
+    // file[12].open(cur_path+"weight/value_net_weight.txt", std::ios::in);
+    // file[13].open(cur_path+"weight/value_net_bias.txt", std::ios::in);
+
+
+    // if(!file[0].is_open())
+    // {
+    //     std::cout<<"Can not find the weight file"<<std::endl;
+    // }
 
     float temp;
     int row = 0;
@@ -298,43 +306,10 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
             }
         }
     }
-    row = 0;
-    col = 0;
-    while(!file[14].eof() && row != value_net_b_.rows())
-    {
-        file[13] >> temp;
-        if(temp != '\n')
-        {
-            value_net_b_(row, col) = temp;
-            col ++;
-            if (col == value_net_b_.cols())
-            {
-                col = 0;
-                row ++;
-            }
-        }
-    }
-    row = 0;
-    col = 0;
-    while(!file[15].eof() && row != value_net_b_.rows())
-    {
-        file[13] >> temp;
-        if(temp != '\n')
-        {
-            value_net_b_(row, col) = temp;
-            col ++;
-            if (col == value_net_b_.cols())
-            {
-                col = 0;
-                row ++;
-            }
-        }
-    }
 }
 
 void CustomController::initVariable() //rui 변수 초기화
-{   
-        
+{    
     policy_net_w0_.resize(num_hidden, num_state);
     policy_net_b0_.resize(num_hidden, 1);
     policy_net_w2_.resize(num_hidden, num_hidden);
@@ -344,7 +319,6 @@ void CustomController::initVariable() //rui 변수 초기화
     hidden_layer1_.resize(num_hidden, 1);
     hidden_layer2_.resize(num_hidden, 1);
     rl_action_.resize(num_action, 1);
-    rl_action_2000_.resize(num_action, 1);
 
     value_net_w0_.resize(num_hidden, num_state);
     value_net_b0_.resize(num_hidden, 1);
@@ -355,12 +329,9 @@ void CustomController::initVariable() //rui 변수 초기화
     value_hidden_layer1_.resize(num_hidden, 1);
     value_hidden_layer2_.resize(num_hidden, 1);
     
-    action_buffer_2000_.resize(num_action*(num_state_skip*frameskip_custom*num_state_hist), 1); //rui
     state_cur_.resize(num_cur_state, 1);
     state_.resize(num_state, 1);
-    state_buffer_2000_.resize(num_cur_state*(num_state_skip*frameskip_custom*num_state_hist), 1);
     state_buffer_.resize(num_cur_state*num_state_skip*num_state_hist, 1);
-    state_temp_.resize(num_cur_state*num_state_hist, 1);
     state_mean_.resize(num_cur_state, 1);
     state_var_.resize(num_cur_state, 1);
 
@@ -438,7 +409,7 @@ void CustomController::processNoise() //rui noise 만들어주기
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dis(-0.00001, 0.00001);
         for (int i = 0; i < MODEL_DOF; i++) {
-            q_noise_(i) = rd_cc_.q_virtual_(6+i); // + dis(gen);
+            q_noise_(i) = rd_cc_.q_virtual_(6+i) + dis(gen);
         }
         if (time_cur_ - time_pre_ > 0.0)
         {
@@ -467,19 +438,19 @@ void CustomController::processObservation() //rui observation 만들어주기
 
     euler_angle_ = DyrosMath::rot2Euler_tf(q.toRotationMatrix());
 
-    state_cur_(data_idx) = euler_angle_(0); //rui 1
+    state_cur_(data_idx) = euler_angle_(0);
     data_idx++;
 
-    state_cur_(data_idx) = euler_angle_(1); //rui 1
+    state_cur_(data_idx) = euler_angle_(1);
     data_idx++;
 
-    state_cur_(data_idx) = euler_angle_(2); //rui 1
+    state_cur_(data_idx) = euler_angle_(2);
     data_idx++;
 
 
     for (int i = 0; i < num_actuator_action; i++)
     {
-        state_cur_(data_idx) = q_noise_(i); //rui 12
+        state_cur_(data_idx) = q_noise_(i);
         data_idx++;
     }
 
@@ -487,7 +458,7 @@ void CustomController::processObservation() //rui observation 만들어주기
     {
         if (is_on_robot_)
         {
-            state_cur_(data_idx) = q_vel_noise_(i); //rui 12
+            state_cur_(data_idx) = q_vel_noise_(i);
         }
         else
         {
@@ -498,16 +469,15 @@ void CustomController::processObservation() //rui observation 만들어주기
 
     float squat_duration = 1.7995;
     phase_ = std::fmod((rd_cc_.control_time_us_-start_time_)/1e6 + action_dt_accumulate_, squat_duration) / squat_duration;
-    
-    state_cur_(data_idx) = sin(2*M_PI*phase_); //rui 1
+    state_cur_(data_idx) = sin(2*M_PI*phase_);
     data_idx++;
-    state_cur_(data_idx) = cos(2*M_PI*phase_); //rui 1
-    data_idx++;
-
-    state_cur_(data_idx) = 0.2;//target_vel_x_; //rui 1
+    state_cur_(data_idx) = cos(2*M_PI*phase_);
     data_idx++;
 
-    state_cur_(data_idx) = target_vel_y_; //rui 1
+    state_cur_(data_idx) = 0.2;//target_vel_x_;
+    data_idx++;
+
+    state_cur_(data_idx) = target_vel_y_;
     data_idx++;
 
     // state_cur_(data_idx) = rd_cc_.LF_FT(2);
@@ -518,40 +488,26 @@ void CustomController::processObservation() //rui observation 만들어주기
 
     for (int i = 0; i <num_actuator_action; i++) 
     {
-        state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);  //rui 12
+        state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);
         data_idx++;
     }
-    state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(num_actuator_action), 0.0, 1.0); //rui 1?
+    state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(num_actuator_action), 0.0, 1.0);
     data_idx++;
     
+    state_buffer_.block(0, 0, num_cur_state*(num_state_skip*num_state_hist-1),1) = state_buffer_.block(num_cur_state, 0, num_cur_state*(num_state_skip*num_state_hist-1),1);
+    state_buffer_.block(num_cur_state*(num_state_skip*num_state_hist-1), 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
 
-//!
-    // // ** buffer size should be changed regarding to the policy frequency ** //
-    // state_buffer_.block(0, 0, num_cur_state*(num_state_skip*num_state_hist-1),1) = state_buffer_.block(num_cur_state, 0, num_cur_state*(num_state_skip*num_state_hist-1),1); //rui 0~396 = 44~440, 44개만큼 끌어오고
-    // state_buffer_.block(num_cur_state*(num_state_skip*num_state_hist-1), 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array(); //rui 0~440 채워주기
+    // Internal State First
+    for (int i = 0; i < num_state_hist; i++)
+    {
+        state_.block(num_cur_internal_state*i, 0, num_cur_internal_state, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)-1), 0, num_cur_internal_state, 1);
+    }
+    // Action History Second
+    for (int i = 0; i < num_state_hist-1; i++)
+    {
+        state_.block(num_state_hist*num_cur_internal_state + num_action*i, 0, num_action, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)) + num_cur_internal_state, 0, num_action, 1);
+    }
 
-    // // Internal State First
-    // for (int i = 0; i < num_state_hist; i++) //rui num_state_hist --> 5 num_cur_internal_state --> 31 (base_ori, q_noise, q_vel_noise, phase_sin, phase_cos, target_vel_x, target_vel_y)
-    // {
-    //     state_.block(num_cur_internal_state*i, 0, num_cur_internal_state, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)-1), 0, num_cur_internal_state, 1); //rui (31xi) ~ (31xi)+31 = (44x(2x(i+1)-1)) ~ (44x(2x(i+1)-1))+31 
-    // }
-    // // Action History Second
-    // for (int i = 0; i < num_state_hist-1; i++)
-    // {
-    //     state_.block(num_state_hist*num_cur_internal_state + num_action*i, 0, num_action, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)) + num_cur_internal_state, 0, num_action, 1); //rui (5x31+13xi) ~ (5x31+13xi)+13 = ((44x2x(i+1))+31) ~ ((44x2x(i+1))+31)+13
-    // }
-//!
-    // // std::cout << "----------------state_cur----------------" << std::endl; //rui 44x1
-    // // std::cout << "shape: " << state_cur_.rows() << "x" << state_cur_.cols() << std::endl;
-    // // std::cout << state_cur_ << std::endl;
-    // // std::cout << "----------------state_buffer----------------" << std::endl; //rui 440x1
-    // // std::cout << "shape: " << state_buffer_.rows() << "x" << state_buffer_.cols() << std::endl;
-    // // std::cout << state_buffer_<< std::endl;
-    // // std::cout << "----------------state----------------" << std::endl; //rui 207x1
-    // // std::cout << "shape: " << state_.rows() << "x" << state_.cols() << std::endl;
-    // // std::cout << state_<< std::endl;
-
-    
 }
 
 void CustomController::feedforwardPolicy() //rui mlp feedforward
@@ -593,7 +549,7 @@ void CustomController::feedforwardPolicy() //rui mlp feedforward
 void CustomController::computeSlow() //rui main
 {
     copyRobotData(rd_);
-    if (rd_cc_.tc_.mode == 7)
+    if (rd_cc_.tc_.mode == 9)
     {
         if (rd_cc_.tc_init)
         {
@@ -604,147 +560,38 @@ void CustomController::computeSlow() //rui main
             time_pre_ = time_cur_ - 0.005;
 
             rd_.tc_init = false;
-            std::cout<<"cc mode 7"<<std::endl;
+            std::cout<<"cc mode 9"<<std::endl;
             torque_init_ = rd_cc_.torque_desired;
 
             processNoise();
             processObservation();
-
-
-
-
-
-            // for (int i = 0; i < num_state_skip*num_state_hist; i++) 
-            // {
-            //     state_buffer_.block(num_cur_state*i, 0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
-            // }
-
-            
-
-            // //! 2000Hz
-            for (int i = 0; i < num_state_skip*frameskip_custom*num_state_hist; i++) //rui 0~2*8*5
+            for (int i = 0; i < num_state_skip*num_state_hist; i++) 
             {
-                state_buffer_2000_.block(num_cur_state*i, 0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
+                state_buffer_.block(num_cur_state*i, 0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
             }
-            // //! 2000Hz
         }
 
         processNoise();
 
-
-        // // if ((rd_cc_.control_time_us_ - time_inputTorque_pre_)/1.0e6 > freq_tester_2000HZ){
-        // //     cout << "(rd_cc_.control_time_us_ - time_inputTorque_pre_)/1.0e6 2000Hz: " << (rd_cc_.control_time_us_ - time_inputTorque_pre_)/1.0e6 << endl;
-        // //     cout << "(rd_cc_.control_time_us_ - time_inputTorque_pre_) 2000Hz: " << (rd_cc_.control_time_us_ - time_inputTorque_pre_) << endl;
-        // // }
-        // //! 2000Hz
-        processObservation(); //rui observation in 2000 44개를 받아옴
-
-        
-        if(is_on_robot_) {
-            try {
-                YAML::Node node = YAML::LoadFile("/home/dyros/catkin_ws/src/tocabi_cc/include/delay_config.yaml");
-                // auto delay = node["delay"];
-                auto action_delay_ = node["delay"]["action"].as<int>();
-                auto observation_delay_ = node["delay"]å["observation"].as<int>();
-
-                action_delay = action_delay_;
-                observation_delay = observation_delay_;
-
-            }
-            catch(const YAML::BadFile& e) {
-                std::cerr << e.msg << std::endl;
-            }
-            catch (YAML::ParserException &e){
-                std::cerr << e.msg << std::endl;
-            }
-        }
-        else{
-            try {
-            YAML::Node node = YAML::LoadFile("/home/dyros/tocabi_ws/src/tocabi_cc/include/delay_config.yaml");
-            // auto delay = node["delay"];
-            auto action_delay_ = node["delay"]["action"].as<int>();
-            auto observation_delay_ = node["delay"]["observation"].as<int>();
-
-            action_delay = action_delay_;
-            observation_delay = observation_delay_;
-
-            }
-            catch(const YAML::BadFile& e) {
-                std::cerr << e.msg << std::endl;
-            }
-            catch (YAML::ParserException &e){
-                std::cerr << e.msg << std::endl;
-            }
-        }
-        // //! 2000Hz
-
-        cout << "a " << action_delay << "o " << observation_delay << " " << endl;
-        
-        // //! 2000Hz obs delay
-        // ** buffer size should be changed regarding to the policy frequency ** //
-        state_buffer_2000_.block(0, 0, num_cur_state*(num_state_skip*num_state_hist*frameskip_custom-1),1) = state_buffer_2000_.block(num_cur_state, 0, num_cur_state*(num_state_skip*num_state_hist*frameskip_custom-1),1); //rui 0~44*(2*5*8-1) = 44~44*(2*5*8), 44개만큼 끌어오고
-        state_buffer_2000_.block(num_cur_state*(num_state_skip*num_state_hist*frameskip_custom-1), 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array(); //rui 0~44*(2*5*8) 44개 새로 채워주기
-        // ** giving delay ** //
-        for (int i = 0; i < num_state_hist; i++){//rui num_state_hist --> 5 개의 0~44 
-            state_temp_.block(num_cur_state*(i), 0, num_cur_state, 1) = state_buffer_2000_.block(num_cur_state*(num_state_skip*frameskip_custom*(i+1)-1 - observation_delay), 0, num_cur_state, 1); //rui 5 개의 44개 에다가 2000Hz에서 딜레이가 적용된 44크기의 state input
-        }
-
-        // Internal State First
-        for (int i = 0; i < num_state_hist; i++) //rui num_state_hist --> 5 num_cur_internal_state --> 31 (base_ori, q_noise, q_vel_noise, phase_sin, phase_cos, target_vel_x, target_vel_y)
-        {
-            state_.block(num_cur_internal_state*i, 0, num_cur_internal_state, 1) = state_temp_.block(num_cur_state*(i), 0, num_cur_internal_state, 1); //rui (31xi) ~ (31xi)+31 = (44x(2x(i+1)-1)) ~ (44x(2x(i+1)-1))+31 
-        }
-        // Action History Second
-        for (int i = 0; i < num_state_hist-1; i++)
-        {
-            state_.block(num_state_hist*num_cur_internal_state + num_action*i, 0, num_action, 1) = state_temp_.block(num_cur_state*(i+1) + num_cur_internal_state, 0, num_action, 1); //rui (5x31+13xi) ~ (5x31+13xi)+13 = ((44x2x(i+1))+31) ~ ((44x2x(i+1))+31)+13
-        }
-        
-        // //! 2000Hz obs delay
-        
         // processObservation and feedforwardPolicy mean time: 15 us, max 53 us 
-        if ((rd_cc_.control_time_us_ - time_inference_pre_)/1.0e6 > freq_scaler_) //rui 250hz 변수만들어서 바꿔주기 default 1/250.0 (control time - inference_time_pre)/ 이 250Hz, 0.004 초 지날때마다 inference
+        if ((rd_cc_.control_time_us_ - time_inference_pre_)/1.0e6 > 1/250.0) //rui 250hz 변수만들어서 바꿔주기
         {
-            
-            // processObservation(); //rui observation in 2000 44개를 받아옴
+            processObservation();
             feedforwardPolicy();
-
-            // action_dt_accumulate_ += DyrosMath::minmax_cut(rl_action_(num_action-1)*freq_scaler_, 0.0, freq_scaler_);
+            
+            action_dt_accumulate_ += DyrosMath::minmax_cut(rl_action_(num_action-1)*1/250.0, 0.0, 1/250.0);
             time_inference_pre_ = rd_cc_.control_time_us_;
+        }
 
-        }
-        action_dt_accumulate_ += DyrosMath::minmax_cut(rl_action_(num_action-1)*freq_tester_2000HZ, 0.0, freq_tester_2000HZ); 
-        // time_inputTorque_pre_ = rd_cc_.control_time_us_;
-        // //! 2000Hz act delay
-        //** put action into buffer **//num_action*(num_state_skip*frameskip_custom*num_state_hist)
-        action_buffer_2000_.block(0, 0, num_action*(num_state_skip*frameskip_custom*num_state_hist-1),1) = action_buffer_2000_.block(num_action, 0, num_action*(num_state_skip*frameskip_custom*num_state_hist-1),1); //rui 0~13x(2*5*8-1) = 13~13x(2*5*8), 13개만큼 끌어오고
-        action_buffer_2000_.block(num_action*(num_state_skip*frameskip_custom*num_state_hist-1), 0, num_action,1) = rl_action_; //rui 새로운 action로 채워주기
-        //** apply action delay **//
-        if( action_buffer_length  <= action_delay){
-            rl_action_2000_ = action_buffer_2000_.block(num_action*(num_state_skip*frameskip_custom*num_state_hist-1 - action_buffer_length), 0, num_action, 1);
-            action_buffer_length++;
-        }
-        else{
-            rl_action_2000_ = action_buffer_2000_.block(num_action*(num_state_skip*frameskip_custom*num_state_hist-1 - action_delay), 0, num_action, 1);
-        }
-        // //! 2000Hz act delay
-
-        // for (int i = 0; i < num_actuator_action; i++)
-        // {
-        //     torque_rl_(i) = DyrosMath::minmax_cut(rl_action_(i)*torque_bound_(i), -torque_bound_(i), torque_bound_(i));
-        // }
-        //! 2000Hz
         for (int i = 0; i < num_actuator_action; i++)
         {
-            torque_rl_(i) = DyrosMath::minmax_cut(rl_action_2000_(i)*torque_bound_(i), -torque_bound_(i), torque_bound_(i));
+            torque_rl_(i) = DyrosMath::minmax_cut(rl_action_(i)*torque_bound_(i), -torque_bound_(i), torque_bound_(i));
         }
-        //! 2000Hz
         for (int i = num_actuator_action; i < MODEL_DOF; i++)
         {
             torque_rl_(i) = kp_(i,i) * (q_init_(i) - q_noise_(i)) - kv_(i,i)*q_vel_noise_(i);
         }
         
-        //** torque 는 2000Hz 로 들어감 **//
         if (rd_cc_.control_time_us_ < start_time_ + 0.2e6) //rui torque 쏴주는것
         {
             for (int i = 0; i <MODEL_DOF; i++)
@@ -757,19 +604,8 @@ void CustomController::computeSlow() //rui main
         {
              rd_.torque_desired = torque_rl_;
         }
-        
-        // if (value_ < 50.0)
-        // {
-        //     if (stop_by_value_thres_ == false)
-        //     {
-        //         stop_by_value_thres_ = true;
-        //         stop_start_time_ = rd_cc_.control_time_us_;
-        //         q_stop_ = q_noise_;
-        //         std::cout << "Stop by Value Function" << std::endl;
-        //     }
-        // }
 
-        if (abs(state_cur_(0)) > 10.0*M_PI/180.0 || abs(state_cur_(1)) > 10.0*M_PI/180.0)
+        if (value_ < 50.0)
         {
             if (stop_by_value_thres_ == false)
             {
@@ -790,10 +626,7 @@ void CustomController::computeSlow() //rui main
             {
                 writeFile << (rd_cc_.control_time_us_ - start_time_)/1e6 << "\t";
                 writeFile << phase_ << "\t";
-                // writeFile << DyrosMath::minmax_cut(rl_action_(num_action-1)*freq_scaler_, 0.0, freq_scaler_) << "\t";
-                //! 2000Hz
-                writeFile << DyrosMath::minmax_cut(rl_action_2000_(num_action-1)*freq_scaler_, 0.0, freq_scaler_) << "\t";
-                //! 2000Hz
+                writeFile << DyrosMath::minmax_cut(rl_action_(num_action-1)*1/250.0, 0.0, 1/250.0) << "\t";
 
                 writeFile << rd_cc_.LF_FT.transpose() << "\t";
                 writeFile << rd_cc_.RF_FT.transpose() << "\t";
@@ -807,15 +640,11 @@ void CustomController::computeSlow() //rui main
                 writeFile << rd_cc_.q_virtual_.transpose() << "\t";
 
                 writeFile << value_ << "\t" << stop_by_value_thres_;
-                
+               
                 writeFile << std::endl;
-                
+
                 time_write_pre_ = rd_cc_.control_time_us_;
-
-                
             }
-
-            
         }
 
     }

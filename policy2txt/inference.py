@@ -98,7 +98,7 @@ def run(config):
         nn_training.to('cpu')
 
         for name, param in nn_training.state_dict().items():
-            file_name = "./result/weights/" + name + ".txt"
+            file_name = "./result/bolt/weights/" + name + ".txt"
             np.savetxt(file_name, param.data)
             
     # play_model = "model_1500.pt"
