@@ -32,6 +32,7 @@ public:
     void feedforwardPolicy();
     void initVariable();
     Eigen::Vector3d mat2euler(Eigen::Matrix3d mat);
+    Eigen::Vector3d quat_rotate_inverse(const Eigen::Quaterniond& q, const Eigen::Vector3d& v); 
 
     static const int num_action = 6;
     static const int num_actuator_action = 6;
@@ -105,6 +106,9 @@ public:
     Eigen::Vector3d base_lin_vel;
     Eigen::Vector3d base_ang_vel;
     Eigen::Vector3d base_lin_pos;
+    Eigen::Vector3d projected_gravity;
+    Eigen::Vector3d gravity_vector(0, 0, -1);
+
 
     float start_time_;
     float time_inference_pre_ = 0.0;
@@ -125,6 +129,8 @@ public:
     double target_vel_x_ = 0.0;
     double target_vel_y_ = 0.0;
     double target_vel_z_ = 0.0;
+
+    double policy_frequency_ = 250.0; //Hz
 
 private:
     Eigen::VectorQd ControlVal_;

@@ -458,6 +458,18 @@ Eigen::Vector3d CustomController::mat2euler(Eigen::Matrix3d mat)
     return euler;
 }
 
+Eigen::Vector3d CustomController::quat_rotate_inverse(const Eigen::Quaterniond& q, const Eigen::Vector3d& v) 
+{
+    Eigen::Vector3d q_vec = q.vec();
+    double q_w = q.w();
+
+    Eigen::Vector3d a = v * (2.0 * q_w * q_w - 1.0);
+    Eigen::Vector3d b = q_vec.cross(v) * q_w * 2.0;
+    Eigen::Vector3d c = q_vec * (q_vec.dot(v) * 2.0);
+
+    return a - b + c;
+}
+
 void CustomController::processNoise() //rui noise 만들어주기
 {
     time_cur_ = rd_cc_.control_time_us_ / 1e6;
@@ -474,8 +486,7 @@ void CustomController::processNoise() //rui noise 만들어주기
             q_dot_lpf_ = q_dot_lpf_;
         }
 
-        base_lin_vel = stm_cc_.pelvis_velocity_estimate_;
-        base_lin_pos = stm_cc_.pelvis_position_estimate_;
+        
     }
     else
     {
@@ -498,8 +509,6 @@ void CustomController::processNoise() //rui noise 만들어주기
         q_noise_pre_ = q_noise_;
 
         
-        base_lin_vel = stm_cc_.pelvis_velocity_estimate_;
-        base_lin_pos = stm_cc_.pelvis_position_estimate_;
     }
     time_pre_ = time_cur_;
 
@@ -524,11 +533,15 @@ void CustomController::processObservation() //rui observation 만들어주기
     """
     int data_idx = 0;
 
+    base_lin_vel = stm_cc_.pelvis_velocity_estimate_;
+    base_lin_pos = stm_cc_.pelvis_position_estimate_;
+    projected_gravity = quat_rotate_inverse(, gravity_vector);
+
 
     //rui - 2 self.contacts,
-    state_cur_(data_idx) = 
+    state_cur_(data_idx) = rd_cc_.ee_[0].contact;
     data_idx++;
-    state_cur_(data_idx) = 
+    state_cur_(data_idx) = rd_cc_.ee_[1].contact;
     data_idx++;
 
     //rui - 1 self.base_z,
@@ -552,7 +565,7 @@ void CustomController::processObservation() //rui observation 만들어주기
     //rui - 3 self.projected_gravity,
     for (auto i = 0; i < 3; i++) 
     {
-        state_cur_(data_idx) = ;
+        state_cur_(data_idx) = projected_gravity;
         data_idx++;
     }
 
@@ -745,12 +758,12 @@ void CustomController::computeSlow() //rui main
         processNoise();
 
         // processObservation and feedforwardPolicy mean time: 15 us, max 53 us 
-        if ((rd_cc_.control_time_us_ - time_inference_pre_)/1.0e6 > 1/250.0) //rui 250hz 변수만들어서 바꿔주기
+        if ((rd_cc_.control_time_us_ - time_inference_pre_)/1.0e6 > 1/policy_frequency_) //rui 250hz 변수만들어서 바꿔주기
         {
             processObservation();
             feedforwardPolicy();
             
-            action_dt_accumulate_ += DyrosMath::minmax_cut(rl_action_(num_action-1)*1/250.0, 0.0, 1/250.0);
+            action_dt_accumulate_ += DyrosMath::minmax_cut(rl_action_(num_action-1)*1/policy_frequency_, 0.0, 1/policy_frequency_);
             time_inference_pre_ = rd_cc_.control_time_us_;
         }
 
@@ -797,7 +810,7 @@ void CustomController::computeSlow() //rui main
             {
                 writeFile << (rd_cc_.control_time_us_ - start_time_)/1e6 << "\t";
                 writeFile << phase_ << "\t";
-                writeFile << DyrosMath::minmax_cut(rl_action_(num_action-1)*1/250.0, 0.0, 1/250.0) << "\t";
+                writeFile << DyrosMath::minmax_cut(rl_action_(num_action-1)*1/policy_frequency_, 0.0, 1/policy_frequency_) << "\t";
 
                 writeFile << rd_cc_.LF_FT.transpose() << "\t";
                 writeFile << rd_cc_.RF_FT.transpose() << "\t";
