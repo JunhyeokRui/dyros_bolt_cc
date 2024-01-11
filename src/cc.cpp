@@ -386,61 +386,56 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
 
 void CustomController::initVariable() //rui 변수 초기화
 {    
-    policy_net_w0_.resize(num_hidden, num_state);
-    policy_net_b0_.resize(num_hidden, 1);
-    policy_net_w2_.resize(num_hidden, num_hidden);
-    policy_net_b2_.resize(num_hidden, 1);
-    action_net_w_.resize(num_action, num_hidden);
+    policy_net_w0_.resize(num_hidden_0, num_state);
+    policy_net_b0_.resize(num_hidden_0, 1);
+    policy_net_w2_.resize(num_hidden_2, num_hidden_0);
+    policy_net_b2_.resize(num_hidden_2, 1);
+    policy_net_w4_.resize(num_hidden_4, num_hidden_2);
+    policy_net_b4_.resize(num_hidden_4, 1);
+    action_net_w_.resize(num_action, num_hidden_4);
     action_net_b_.resize(num_action, 1);
-    hidden_layer1_.resize(num_hidden, 1);
-    hidden_layer2_.resize(num_hidden, 1);
+
+    hidden_layer1_.resize(num_hidden_0, 1);
+    hidden_layer2_.resize(num_hidden_2, 1);
+    hidden_layer3_.resize(num_hidden_4, 1);
     rl_action_.resize(num_action, 1);
 
-    value_net_w0_.resize(num_hidden, num_state);
-    value_net_b0_.resize(num_hidden, 1);
-    value_net_w2_.resize(num_hidden, num_hidden);
-    value_net_b2_.resize(num_hidden, 1);
-    value_net_w_.resize(1, num_hidden);
+    value_net_w0_.resize(num_hidden_0, num_state);
+    value_net_b0_.resize(num_hidden_0, 1);
+    value_net_w2_.resize(num_hidden_2, num_hidden_0);
+    value_net_b2_.resize(num_hidden_2, 1);
+    value_net_w4_.resize(num_hidden_4, num_hidden_2);
+    value_net_b4_.resize(num_hidden_4, 1);
+    value_net_w_.resize(1, num_hidden_4);
     value_net_b_.resize(1, 1);
-    value_hidden_layer1_.resize(num_hidden, 1);
-    value_hidden_layer2_.resize(num_hidden, 1);
+    
+    value_hidden_layer1_.resize(num_hidden_0, 1);
+    value_hidden_layer2_.resize(num_hidden_2, 1);
+    value_hidden_layer3_.resize(num_hidden_4, 1);
     
     state_cur_.resize(num_cur_state, 1);
-    state_.resize(num_state, 1);
+    
+    // state_.resize(num_state, 1);
+
     state_buffer_.resize(num_cur_state*num_state_skip*num_state_hist, 1);
     state_mean_.resize(num_cur_state, 1);
     state_var_.resize(num_cur_state, 1);
 
     q_dot_lpf_.setZero();
 
-    torque_bound_ << 333, 232, 263, 289, 222, 166,
-                    333, 232, 263, 289, 222, 166,
-                    303, 303, 303, 
-                    64, 64, 64, 64, 23, 23, 10, 10,
-                    10, 10,
-                    64, 64, 64, 64, 23, 23, 10, 10;  
+    torque_bound_ << 0, 0, 0, 
+                     0, 0, 0;  
                     
-    q_init_ << 0.0, 0.0, -0.24, 0.6, -0.36, 0.0,
-                0.0, 0.0, -0.24, 0.6, -0.36, 0.0,
-                0.0, 0.0, 0.0,
-                0.3, 0.3, 1.5, -1.27, -1.0, 0.0, -1.0, 0.0,
-                0.0, 0.0,
-                -0.3, -0.3, -1.5, 1.27, 1.0, 0.0, 1.0, 0.0;
+    q_init_ << 0.0, 0.0, 0.0,
+               0.0, 0.0, 0.0;
 
     kp_.setZero();
     kv_.setZero();
-    kp_.diagonal() <<   2000.0, 5000.0, 4000.0, 3700.0, 3200.0, 3200.0,
-                        2000.0, 5000.0, 4000.0, 3700.0, 3200.0, 3200.0,
-                        6000.0, 10000.0, 10000.0,
-                        400.0, 1000.0, 400.0, 400.0, 400.0, 400.0, 100.0, 100.0,
-                        100.0, 100.0,
-                        400.0, 1000.0, 400.0, 400.0, 400.0, 400.0, 100.0, 100.0;
-    kv_.diagonal() << 15.0, 50.0, 20.0, 25.0, 24.0, 24.0,
-                        15.0, 50.0, 20.0, 25.0, 24.0, 24.0,
-                        200.0, 100.0, 100.0,
-                        10.0, 28.0, 10.0, 10.0, 10.0, 10.0, 3.0, 3.0,
-                        2.0, 2.0,
-                        10.0, 28.0, 10.0, 10.0, 10.0, 10.0, 3.0, 3.0;
+
+    kp_.diagonal() <<   0.0, 0.0, 0.0,
+                        0.0, 0.0, 0.0;
+    kv_.diagonal() <<   0.0, 0.0, 0.0,
+                        0.0, 0.0, 0.0;
 }
 
 Eigen::Vector3d CustomController::mat2euler(Eigen::Matrix3d mat)
@@ -504,71 +499,87 @@ void CustomController::processNoise() //rui noise 만들어주기
 
 void CustomController::processObservation() //rui observation 만들어주기 
 {
+    """
+    obs_buf
+    size --> 2 self.contacts,
+    size --> 1 self.base_z,
+    size --> 3 self.base_lin_vel * self.obs_scales.lin_vel,
+    size --> 3 self.base_ang_vel * self.obs_scales.ang_vel,
+    size --> 3 self.projected_gravity,
+    size --> 3 self.commands[:, :3] * self.commands_scale,
+    size --> 6 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+    size --> 6 self.dof_vel * self.obs_scales.dof_vel,
+    size --> 6 self.actions
+    
+    total 33
+    """
     int data_idx = 0;
 
-    Eigen::Quaterniond q;
-    q.x() = rd_cc_.q_virtual_(3);
-    q.y() = rd_cc_.q_virtual_(4);
-    q.z() = rd_cc_.q_virtual_(5);
-    q.w() = rd_cc_.q_virtual_(MODEL_DOF_QVIRTUAL-1);    
+    
 
-    euler_angle_ = DyrosMath::rot2Euler_tf(q.toRotationMatrix());
+    // Eigen::Quaterniond q;
+    // q.x() = rd_cc_.q_virtual_(3);
+    // q.y() = rd_cc_.q_virtual_(4);
+    // q.z() = rd_cc_.q_virtual_(5);
+    // q.w() = rd_cc_.q_virtual_(MODEL_DOF_QVIRTUAL-1);    
 
-    state_cur_(data_idx) = euler_angle_(0);
-    data_idx++;
+    // euler_angle_ = DyrosMath::rot2Euler_tf(q.toRotationMatrix());
 
-    state_cur_(data_idx) = euler_angle_(1);
-    data_idx++;
-
-    state_cur_(data_idx) = euler_angle_(2);
-    data_idx++;
-
-
-    for (int i = 0; i < num_actuator_action; i++)
-    {
-        state_cur_(data_idx) = q_noise_(i);
-        data_idx++;
-    }
-
-    for (int i = 0; i < num_actuator_action; i++)
-    {
-        if (is_on_robot_)
-        {
-            state_cur_(data_idx) = q_vel_noise_(i);
-        }
-        else
-        {
-            state_cur_(data_idx) = q_vel_noise_(i); //rd_cc_.q_dot_virtual_(i+6); //q_vel_noise_(i);
-        }
-        data_idx++;
-    }
-
-    float squat_duration = 1.7995;
-    phase_ = std::fmod((rd_cc_.control_time_us_-start_time_)/1e6 + action_dt_accumulate_, squat_duration) / squat_duration;
-    state_cur_(data_idx) = sin(2*M_PI*phase_);
-    data_idx++;
-    state_cur_(data_idx) = cos(2*M_PI*phase_);
-    data_idx++;
-
-    state_cur_(data_idx) = 0.2;//target_vel_x_;
-    data_idx++;
-
-    state_cur_(data_idx) = target_vel_y_;
-    data_idx++;
-
-    // state_cur_(data_idx) = rd_cc_.LF_FT(2);
+    // state_cur_(data_idx) = euler_angle_(0);
     // data_idx++;
 
-    // state_cur_(data_idx) = rd_cc_.RF_FT(2);
+    // state_cur_(data_idx) = euler_angle_(1);
     // data_idx++;
 
-    for (int i = 0; i <num_actuator_action; i++) 
-    {
-        state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);
-        data_idx++;
-    }
-    state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(num_actuator_action), 0.0, 1.0);
-    data_idx++;
+    // state_cur_(data_idx) = euler_angle_(2);
+    // data_idx++;
+
+
+    // for (int i = 0; i < num_actuator_action; i++)
+    // {
+    //     state_cur_(data_idx) = q_noise_(i);
+    //     data_idx++;
+    // }
+
+    // for (int i = 0; i < num_actuator_action; i++)
+    // {
+    //     if (is_on_robot_)
+    //     {
+    //         state_cur_(data_idx) = q_vel_noise_(i);
+    //     }
+    //     else
+    //     {
+    //         state_cur_(data_idx) = q_vel_noise_(i); //rd_cc_.q_dot_virtual_(i+6); //q_vel_noise_(i);
+    //     }
+    //     data_idx++;
+    // }
+
+    // float squat_duration = 1.7995;
+    // phase_ = std::fmod((rd_cc_.control_time_us_-start_time_)/1e6 + action_dt_accumulate_, squat_duration) / squat_duration;
+    // state_cur_(data_idx) = sin(2*M_PI*phase_);
+    // data_idx++;
+    // state_cur_(data_idx) = cos(2*M_PI*phase_);
+    // data_idx++;
+
+    // state_cur_(data_idx) = 0.2;//target_vel_x_;
+    // data_idx++;
+
+    // state_cur_(data_idx) = target_vel_y_;
+    // data_idx++;
+
+    // // state_cur_(data_idx) = rd_cc_.LF_FT(2);
+    // // data_idx++;
+
+    // // state_cur_(data_idx) = rd_cc_.RF_FT(2);
+    // // data_idx++;
+
+    // for (int i = 0; i < num_actuator_action; i++) 
+    // {
+    //     state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);
+    //     data_idx++;
+    // }
+    // state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(num_actuator_action), 0.0, 1.0);
+    // data_idx++;
     
     state_buffer_.block(0, 0, num_cur_state*(num_state_skip*num_state_hist-1),1) = state_buffer_.block(num_cur_state, 0, num_cur_state*(num_state_skip*num_state_hist-1),1);
     state_buffer_.block(num_cur_state*(num_state_skip*num_state_hist-1), 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
