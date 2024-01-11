@@ -473,6 +473,9 @@ void CustomController::processNoise() //rui noise 만들어주기
         {
             q_dot_lpf_ = q_dot_lpf_;
         }
+
+        base_lin_vel = stm_cc_.pelvis_velocity_estimate_;
+        base_lin_pos = stm_cc_.pelvis_position_estimate_;
     }
     else
     {
@@ -493,8 +496,14 @@ void CustomController::processNoise() //rui noise 만들어주기
             q_dot_lpf_ = q_dot_lpf_;
         }
         q_noise_pre_ = q_noise_;
+
+        
+        base_lin_vel = stm_cc_.pelvis_velocity_estimate_;
+        base_lin_pos = stm_cc_.pelvis_position_estimate_;
     }
     time_pre_ = time_cur_;
+
+    
 }
 
 void CustomController::processObservation() //rui observation 만들어주기 
@@ -515,6 +524,67 @@ void CustomController::processObservation() //rui observation 만들어주기
     """
     int data_idx = 0;
 
+
+    //rui - 2 self.contacts,
+    state_cur_(data_idx) = 
+    data_idx++;
+    state_cur_(data_idx) = 
+    data_idx++;
+
+    //rui - 1 self.base_z,
+    state_cur_(data_idx) = base_lin_pos[2]; 
+    data_idx++;
+
+    //rui - 3 self.base_lin_vel * self.obs_scales.lin_vel
+    for (auto i = 0; i < 3; i++) 
+    {
+        state_cur_(data_idx) = base_lin_vel[i];
+        data_idx++;
+    }
+    
+    //rui - 3 self.base_ang_vel * self.obs_scales.ang_vel,
+    for (auto i = 0; i < 3; i++) 
+    {
+        state_cur_(data_idx) = base_ang_vel[i];
+        data_idx++;
+    }
+
+    //rui - 3 self.projected_gravity,
+    for (auto i = 0; i < 3; i++) 
+    {
+        state_cur_(data_idx) = ;
+        data_idx++;
+    }
+
+    //rui - 3 self.commands[:, :3] * self.commands_scale,
+    state_cur_(data_idx) = target_vel_x_;
+    data_idx++;
+    state_cur_(data_idx) = target_vel_y_;
+    data_idx++;
+    state_cur_(data_idx) = target_vel_z_;
+    data_idx++;
+    
+
+    //rui - 6 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+    for (auto i = 0; i < num_actuator_action; i++) 
+    {
+        state_cur_(data_idx) = q_noise_;
+        data_idx++;
+    }
+
+    //rui - 6 self.dof_vel * self.obs_scales.dof_vel,
+    for (auto i = 0; i < num_actuator_action; i++) 
+    {
+        state_cur_(data_idx) = q_vel_noise_;
+        data_idx++;
+    }
+
+    //rui - 6 self.actions
+    for (auto i = 0; i < num_actuator_action; i++) 
+    {
+        state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);
+        data_idx++;
+    }
     
 
     // Eigen::Quaterniond q;
@@ -613,7 +683,14 @@ void CustomController::feedforwardPolicy() //rui mlp feedforward
             hidden_layer2_(i) = 0.0;
     }
 
-    rl_action_ = action_net_w_ * hidden_layer2_ + action_net_b_;
+    hidden_layer3_ = policy_net_w4_ * hidden_layer2_ + policy_net_b4_;
+    for (int i = 0; i < num_hidden; i++) 
+    {
+        if (hidden_layer3_(i) < 0)
+            hidden_layer3_(i) = 0.0;
+    }
+
+    rl_action_ = action_net_w_ * hidden_layer3_ + action_net_b_;
 
     value_hidden_layer1_ = value_net_w0_ * state_ + value_net_b0_;
     for (int i = 0; i < num_hidden; i++) 
@@ -629,7 +706,14 @@ void CustomController::feedforwardPolicy() //rui mlp feedforward
             value_hidden_layer2_(i) = 0.0;
     }
 
-    value_ = (value_net_w_ * value_hidden_layer2_ + value_net_b_)(0);
+    value_hidden_layer3_ = value_net_w4_ * value_hidden_layer2_ + value_net_b4_;
+    for (int i = 0; i < num_hidden; i++) 
+    {
+        if (value_hidden_layer3_(i) < 0)
+            value_hidden_layer3_(i) = 0.0;
+    }
+
+    value_ = (value_net_w_ * value_hidden_layer3_ + value_net_b_)(0);
     
 }
 

@@ -1,4 +1,5 @@
 #include "dyros_bolt_lib/robot_data.h"
+#include "dyros_bolt_controller/state_manager.h"
 #include "wholebody_functions.h"
 #include <random>
 #include <cmath>
@@ -21,6 +22,8 @@ public:
 
     RobotData &rd_;
     RobotData rd_cc_;
+    StateManager &stm_;
+    StateManager stm_cc_;
 
     //////////////////////////////////////////// Donghyeon RL /////////////////////////////////////////
     void loadNetwork();
@@ -40,6 +43,8 @@ public:
     static const int num_hidden_0 = 512;
     static const int num_hidden_2 = 256;
     static const int num_hidden_4 = 128;
+
+    static const int num_commands = 3;
 
 
     Eigen::MatrixXd policy_net_w0_;
@@ -97,6 +102,10 @@ public:
     Eigen::Matrix<double, MODEL_DOF, MODEL_DOF> kp_;
     Eigen::Matrix<double, MODEL_DOF, MODEL_DOF> kv_;
 
+    Eigen::Vector3d base_lin_vel;
+    Eigen::Vector3d base_ang_vel;
+    Eigen::Vector3d base_lin_pos;
+
     float start_time_;
     float time_inference_pre_ = 0.0;
     float time_write_pre_ = 0.0;
@@ -115,6 +124,7 @@ public:
 
     double target_vel_x_ = 0.0;
     double target_vel_y_ = 0.0;
+    double target_vel_z_ = 0.0;
 
 private:
     Eigen::VectorQd ControlVal_;
