@@ -4,7 +4,7 @@
 
 using namespace DYROS_BOLT;
 
-CustomController::CustomController(RobotData &rd) : rd_(rd) //, wbc_(dc.wbc_)
+CustomController::CustomController(RobotData &rd) : rd_(rd)//, wbc_(dc.wbc_)
 {
     ControlVal_.setZero();
 
@@ -395,9 +395,9 @@ void CustomController::initVariable() //rui 변수 초기화
     action_net_w_.resize(num_action, num_hidden_4);
     action_net_b_.resize(num_action, 1);
 
-    hidden_layer1_.resize(num_hidden_0, 1);
-    hidden_layer2_.resize(num_hidden_2, 1);
-    hidden_layer3_.resize(num_hidden_4, 1);
+    hidden_layer_1.resize(num_hidden_0, 1);
+    hidden_layer_2.resize(num_hidden_2, 1);
+    hidden_layer_3.resize(num_hidden_4, 1);
     rl_action_.resize(num_action, 1);
 
     value_net_w0_.resize(num_hidden_0, num_state);
@@ -409,9 +409,9 @@ void CustomController::initVariable() //rui 변수 초기화
     value_net_w_.resize(1, num_hidden_4);
     value_net_b_.resize(1, 1);
     
-    value_hidden_layer1_.resize(num_hidden_0, 1);
-    value_hidden_layer2_.resize(num_hidden_2, 1);
-    value_hidden_layer3_.resize(num_hidden_4, 1);
+    value_hidden_layer_1.resize(num_hidden_0, 1);
+    value_hidden_layer_2.resize(num_hidden_2, 1);
+    value_hidden_layer_3.resize(num_hidden_4, 1);
     
     state_cur_.resize(num_cur_state, 1);
     
@@ -517,7 +517,7 @@ void CustomController::processNoise() //rui noise 만들어주기
 
 void CustomController::processObservation() //rui observation 만들어주기 
 {
-    """
+    /*
     obs_buf
     size --> 2 self.contacts,
     size --> 1 self.base_z,
@@ -530,13 +530,21 @@ void CustomController::processObservation() //rui observation 만들어주기
     size --> 6 self.actions
     
     total 33
-    """
+    */
+    
     int data_idx = 0;
 
-    base_lin_vel = stm_cc_.pelvis_velocity_estimate_;
-    base_lin_pos = stm_cc_.pelvis_position_estimate_;
-    projected_gravity = quat_rotate_inverse(, gravity_vector);
+    
 
+    base_lin_vel = rd_cc_.imu_lin_vel;
+    base_ang_vel = rd_cc_.imu_ang_vel;
+    base_link_quat = rd_cc_.base_link_xquat_rd;
+    gravity_vector << 0, 0, -1;
+    projected_gravity = quat_rotate_inverse(base_link_quat, gravity_vector);
+
+    std::cout << "projected_gravity : " << projected_gravity << std::endl;
+    std::cout << "base_lin_vel : " << base_lin_vel << std::endl;
+    std::cout << "base_ang_vel : " << base_ang_vel << std::endl;
 
     //rui - 2 self.contacts,
     state_cur_(data_idx) = rd_cc_.ee_[0].contact;
@@ -565,7 +573,7 @@ void CustomController::processObservation() //rui observation 만들어주기
     //rui - 3 self.projected_gravity,
     for (auto i = 0; i < 3; i++) 
     {
-        state_cur_(data_idx) = projected_gravity;
+        state_cur_(data_idx) = projected_gravity[i];
         data_idx++;
     }
 
@@ -581,14 +589,14 @@ void CustomController::processObservation() //rui observation 만들어주기
     //rui - 6 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
     for (auto i = 0; i < num_actuator_action; i++) 
     {
-        state_cur_(data_idx) = q_noise_;
+        state_cur_(data_idx) = q_noise_[i];
         data_idx++;
     }
 
     //rui - 6 self.dof_vel * self.obs_scales.dof_vel,
     for (auto i = 0; i < num_actuator_action; i++) 
     {
-        state_cur_(data_idx) = q_vel_noise_;
+        state_cur_(data_idx) = q_vel_noise_[i];
         data_idx++;
     }
 
@@ -664,69 +672,70 @@ void CustomController::processObservation() //rui observation 만들어주기
     // state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(num_actuator_action), 0.0, 1.0);
     // data_idx++;
     
-    state_buffer_.block(0, 0, num_cur_state*(num_state_skip*num_state_hist-1),1) = state_buffer_.block(num_cur_state, 0, num_cur_state*(num_state_skip*num_state_hist-1),1);
-    state_buffer_.block(num_cur_state*(num_state_skip*num_state_hist-1), 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
+    // state_buffer_.block(0, 0, num_cur_state*(num_state_skip*num_state_hist-1),1) = state_buffer_.block(num_cur_state, 0, num_cur_state*(num_state_skip*num_state_hist-1),1);
+    // state_buffer_.block(num_cur_state*(num_state_skip*num_state_hist-1), 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
 
-    // Internal State First
-    for (int i = 0; i < num_state_hist; i++)
-    {
-        state_.block(num_cur_internal_state*i, 0, num_cur_internal_state, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)-1), 0, num_cur_internal_state, 1);
-    }
-    // Action History Second
-    for (int i = 0; i < num_state_hist-1; i++)
-    {
-        state_.block(num_state_hist*num_cur_internal_state + num_action*i, 0, num_action, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)) + num_cur_internal_state, 0, num_action, 1);
-    }
+    // // Internal State First
+    // for (int i = 0; i < num_state_hist; i++)
+    // {
+    //     state_.block(num_cur_internal_state*i, 0, num_cur_internal_state, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)-1), 0, num_cur_internal_state, 1);
+    // }
+    // // Action History Second
+    // for (int i = 0; i < num_state_hist-1; i++)
+    // {
+    //     state_.block(num_state_hist*num_cur_internal_state + num_action*i, 0, num_action, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)) + num_cur_internal_state, 0, num_action, 1);
+    // }
 
+    state_.block(0, 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
 }
 
 void CustomController::feedforwardPolicy() //rui mlp feedforward
 {
-    hidden_layer1_ = policy_net_w0_ * state_ + policy_net_b0_;
-    for (int i = 0; i < num_hidden; i++) 
+    hidden_layer_1 = policy_net_w0_ * state_ + policy_net_b0_;
+    for (int i = 0; i < num_hidden_0; i++) 
     {
-        if (hidden_layer1_(i) < 0)
-            hidden_layer1_(i) = 0.0;
+        if (hidden_layer_1(i) < 0)
+            hidden_layer_1(i) = 0.0;
     }
 
-    hidden_layer2_ = policy_net_w2_ * hidden_layer1_ + policy_net_b2_;
-    for (int i = 0; i < num_hidden; i++) 
+    hidden_layer_2 = policy_net_w2_ * hidden_layer_1 + policy_net_b2_;
+    for (int i = 0; i < num_hidden_2; i++) 
     {
-        if (hidden_layer2_(i) < 0)
-            hidden_layer2_(i) = 0.0;
+        if (hidden_layer_2(i) < 0)
+            hidden_layer_2(i) = 0.0;
     }
 
-    hidden_layer3_ = policy_net_w4_ * hidden_layer2_ + policy_net_b4_;
-    for (int i = 0; i < num_hidden; i++) 
+    hidden_layer_3 = policy_net_w4_ * hidden_layer_2 + policy_net_b4_;
+    for (int i = 0; i < num_hidden_4; i++) 
     {
-        if (hidden_layer3_(i) < 0)
-            hidden_layer3_(i) = 0.0;
+        if (hidden_layer_3(i) < 0)
+            hidden_layer_3(i) = 0.0;
     }
 
-    rl_action_ = action_net_w_ * hidden_layer3_ + action_net_b_;
+    rl_action_ = action_net_w_ * hidden_layer_3 + action_net_b_;
 
-    value_hidden_layer1_ = value_net_w0_ * state_ + value_net_b0_;
-    for (int i = 0; i < num_hidden; i++) 
+    value_hidden_layer_1 = value_net_w0_ * state_ + value_net_b0_;
+    for (int i = 0; i < num_hidden_0; i++) 
     {
-        if (value_hidden_layer1_(i) < 0)
-            value_hidden_layer1_(i) = 0.0;
+        if (value_hidden_layer_1(i) < 0)
+            value_hidden_layer_1(i) = 0.0;
     }
 
-    value_hidden_layer2_ = value_net_w2_ * value_hidden_layer1_ + value_net_b2_;
-    for (int i = 0; i < num_hidden; i++) 
+    value_hidden_layer_2 = value_net_w2_ * value_hidden_layer_1 + value_net_b2_;
+    for (int i = 0; i < num_hidden_2; i++) 
     {
-        if (value_hidden_layer2_(i) < 0)
-            value_hidden_layer2_(i) = 0.0;
+        if (value_hidden_layer_2(i) < 0)
+            value_hidden_layer_2(i) = 0.0;
     }
 
-    value_hidden_layer3_ = value_net_w4_ * value_hidden_layer2_ + value_net_b4_;
-    for (int i = 0; i < num_hidden; i++) 
+    value_hidden_layer_3 = value_net_w4_ * value_hidden_layer_2 + value_net_b4_;
+    for (int i = 0; i < num_hidden_4; i++) 
     {
-        if (value_hidden_layer3_(i) < 0)
-            value_hidden_layer3_(i) = 0.0;
+        if (value_hidden_layer_3(i) < 0)
+            value_hidden_layer_3(i) = 0.0;
     }
 
-    value_ = (value_net_w_ * value_hidden_layer3_ + value_net_b_)(0);
+    value_ = (value_net_w_ * value_hidden_layer_3 + value_net_b_)(0);
     
 }
 
@@ -749,10 +758,11 @@ void CustomController::computeSlow() //rui main
 
             processNoise();
             processObservation();
-            for (int i = 0; i < num_state_skip*num_state_hist; i++) 
-            {
-                state_buffer_.block(num_cur_state*i, 0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
-            }
+            // for (int i = 0; i < num_state_skip*num_state_hist; i++) 
+            // {
+            //     state_buffer_.block(num_cur_state*i, 0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
+            // }
+            state_.block(0,0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
         }
 
         processNoise();
@@ -809,7 +819,7 @@ void CustomController::computeSlow() //rui main
             if ((rd_cc_.control_time_us_ - time_write_pre_)/1e6 > 1/240.0)
             {
                 writeFile << (rd_cc_.control_time_us_ - start_time_)/1e6 << "\t";
-                writeFile << phase_ << "\t";
+                // writeFile << phase_ << "\t";
                 writeFile << DyrosMath::minmax_cut(rl_action_(num_action-1)*1/policy_frequency_, 0.0, 1/policy_frequency_) << "\t";
 
                 writeFile << rd_cc_.LF_FT.transpose() << "\t";

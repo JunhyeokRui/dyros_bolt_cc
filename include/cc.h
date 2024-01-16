@@ -1,5 +1,5 @@
 #include "dyros_bolt_lib/robot_data.h"
-#include "dyros_bolt_controller/state_manager.h"
+// #include "dyros_bolt_controller/state_manager.h"
 #include "wholebody_functions.h"
 #include <random>
 #include <cmath>
@@ -22,8 +22,7 @@ public:
 
     RobotData &rd_;
     RobotData rd_cc_;
-    StateManager &stm_;
-    StateManager stm_cc_;
+    
 
     //////////////////////////////////////////// Donghyeon RL /////////////////////////////////////////
     void loadNetwork();
@@ -56,8 +55,9 @@ public:
     Eigen::MatrixXd policy_net_b4_;
     Eigen::MatrixXd action_net_w_;
     Eigen::MatrixXd action_net_b_;
-    Eigen::MatrixXd hidden_layer1_;
-    Eigen::MatrixXd hidden_layer2_;
+    Eigen::MatrixXd hidden_layer_1;
+    Eigen::MatrixXd hidden_layer_2;
+    Eigen::MatrixXd hidden_layer_3;
     Eigen::MatrixXd rl_action_;
 
     Eigen::MatrixXd value_net_w0_;
@@ -68,8 +68,9 @@ public:
     Eigen::MatrixXd value_net_b4_;
     Eigen::MatrixXd value_net_w_;
     Eigen::MatrixXd value_net_b_;
-    Eigen::MatrixXd value_hidden_layer1_;
-    Eigen::MatrixXd value_hidden_layer2_;
+    Eigen::MatrixXd value_hidden_layer_1;
+    Eigen::MatrixXd value_hidden_layer_2;
+    Eigen::MatrixXd value_hidden_layer_3;
     double value_;
 
     bool stop_by_value_thres_ = false;
@@ -103,11 +104,14 @@ public:
     Eigen::Matrix<double, MODEL_DOF, MODEL_DOF> kp_;
     Eigen::Matrix<double, MODEL_DOF, MODEL_DOF> kv_;
 
+    Eigen::Vector3d base_lin_acc;
     Eigen::Vector3d base_lin_vel;
     Eigen::Vector3d base_ang_vel;
     Eigen::Vector3d base_lin_pos;
     Eigen::Vector3d projected_gravity;
-    Eigen::Vector3d gravity_vector(0, 0, -1);
+    Eigen::Vector3d gravity_vector;
+    Eigen::Quaterniond base_link_quat;
+    
 
 
     float start_time_;
