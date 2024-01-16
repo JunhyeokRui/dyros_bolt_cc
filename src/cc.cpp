@@ -742,8 +742,9 @@ void CustomController::feedforwardPolicy() //rui mlp feedforward
 void CustomController::computeSlow() //rui main
 {
     copyRobotData(rd_);
-    if (rd_cc_.tc_.mode == 9)
+    if (rd_cc_.tc_.mode == 8)
     {
+        std::cout << "test1cc" << std::endl;
         if (rd_cc_.tc_init)
         {
             //Initialize settings for Task Control! 
@@ -751,7 +752,7 @@ void CustomController::computeSlow() //rui main
             q_noise_pre_ = q_noise_ = q_init_ = rd_cc_.q_virtual_.segment(6,MODEL_DOF);
             time_cur_ = start_time_ / 1e6;
             time_pre_ = time_cur_ - 0.005;
-
+        
             rd_.tc_init = false;
             std::cout<<"cc mode 9"<<std::endl;
             torque_init_ = rd_cc_.torque_desired;
@@ -764,6 +765,7 @@ void CustomController::computeSlow() //rui main
             // }
             state_.block(0,0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
         }
+        std::cout << "test2cc" << std::endl;
 
         processNoise();
 
@@ -786,6 +788,10 @@ void CustomController::computeSlow() //rui main
             torque_rl_(i) = kp_(i,i) * (q_init_(i) - q_noise_(i)) - kv_(i,i)*q_vel_noise_(i);
         }
         
+
+        std::cout << "torque_rl_" << std::endl;
+        std::cout << torque_rl_ << std::endl;
+
         if (rd_cc_.control_time_us_ < start_time_ + 0.2e6) //rui torque 쏴주는것
         {
             for (int i = 0; i <MODEL_DOF; i++)
