@@ -415,7 +415,7 @@ void CustomController::initVariable() //rui 변수 초기화
     
     state_cur_.resize(num_cur_state, 1);
     
-    // state_.resize(num_state, 1);
+    state_.resize(num_state, 1);
 
     state_buffer_.resize(num_cur_state*num_state_skip*num_state_hist, 1);
     state_mean_.resize(num_cur_state, 1);
@@ -534,7 +534,6 @@ void CustomController::processObservation() //rui observation 만들어주기
     
     int data_idx = 0;
 
-    
 
     base_lin_vel = rd_cc_.imu_lin_vel;
     base_ang_vel = rd_cc_.imu_ang_vel;
@@ -542,9 +541,6 @@ void CustomController::processObservation() //rui observation 만들어주기
     gravity_vector << 0, 0, -1;
     projected_gravity = quat_rotate_inverse(base_link_quat, gravity_vector);
 
-    std::cout << "projected_gravity : " << projected_gravity << std::endl;
-    std::cout << "base_lin_vel : " << base_lin_vel << std::endl;
-    std::cout << "base_ang_vel : " << base_ang_vel << std::endl;
 
     //rui - 2 self.contacts,
     state_cur_(data_idx) = rd_cc_.ee_[0].contact;
@@ -686,7 +682,8 @@ void CustomController::processObservation() //rui observation 만들어주기
     //     state_.block(num_state_hist*num_cur_internal_state + num_action*i, 0, num_action, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)) + num_cur_internal_state, 0, num_action, 1);
     // }
 
-    state_.block(0, 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
+    // state_.block(0, 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
+    state_.block(0, 0, num_cur_state, 1) = state_cur_.array();
 }
 
 void CustomController::feedforwardPolicy() //rui mlp feedforward
@@ -713,7 +710,8 @@ void CustomController::feedforwardPolicy() //rui mlp feedforward
     }
 
     rl_action_ = action_net_w_ * hidden_layer_3 + action_net_b_;
-
+    std::cout << "rl_action_from feedforward" << std::endl;
+    std::cout << rl_action_ << std::endl;
     value_hidden_layer_1 = value_net_w0_ * state_ + value_net_b0_;
     for (int i = 0; i < num_hidden_0; i++) 
     {
@@ -744,17 +742,18 @@ void CustomController::computeSlow() //rui main
     copyRobotData(rd_);
     if (rd_cc_.tc_.mode == 8)
     {
-        std::cout << "test1cc" << std::endl;
         if (rd_cc_.tc_init)
         {
             //Initialize settings for Task Control! 
             start_time_ = rd_cc_.control_time_us_;
             q_noise_pre_ = q_noise_ = q_init_ = rd_cc_.q_virtual_.segment(6,MODEL_DOF);
+            std::cout << rd_cc_.q_virtual_.size() << std::endl;
+            std::cout << rd_cc_.q_virtual_.segment(6,MODEL_DOF) << std::endl;
             time_cur_ = start_time_ / 1e6;
             time_pre_ = time_cur_ - 0.005;
         
             rd_.tc_init = false;
-            std::cout<<"cc mode 9"<<std::endl;
+            std::cout<<"cc mode 8"<<std::endl;
             torque_init_ = rd_cc_.torque_desired;
 
             processNoise();
@@ -763,9 +762,9 @@ void CustomController::computeSlow() //rui main
             // {
             //     state_buffer_.block(num_cur_state*i, 0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
             // }
-            state_.block(0,0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
+            // state_.block(0,0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
+            state_.block(0,0, num_cur_state, 1) = state_cur_.array();
         }
-        std::cout << "test2cc" << std::endl;
 
         processNoise();
 
