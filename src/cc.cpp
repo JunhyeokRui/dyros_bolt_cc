@@ -4,7 +4,7 @@
 
 using namespace DYROS_BOLT;
 
-CustomController::CustomController(RobotData &rd) : rd_(rd)//, wbc_(dc.wbc_)
+CustomController::CustomController(RobotData &rd, StateManager &stm, DataContainer &dc) : rd_(rd), stm_(stm), dc_(dc)//, wbc_(dc.wbc_)
 {
     ControlVal_.setZero();
 
@@ -540,16 +540,17 @@ void CustomController::processObservation() //rui observation 만들어주기
     base_link_quat = rd_cc_.base_link_xquat_rd;
     gravity_vector << 0, 0, -1;
     projected_gravity = quat_rotate_inverse(base_link_quat, gravity_vector);
-
+    std::cout << "base_lin_vel" << std::endl;
+    std::cout << base_lin_vel << std::endl;
+    
 
     //rui - 2 self.contacts,
-    state_cur_(data_idx) = rd_cc_.ee_[0].contact;
+    state_cur_(data_idx) = stm_.foot_contact_(0);
     data_idx++;
-    state_cur_(data_idx) = rd_cc_.ee_[1].contact;
+    state_cur_(data_idx) = stm_.foot_contact_(1);
     data_idx++;
-
     //rui - 1 self.base_z,
-    state_cur_(data_idx) = base_lin_pos[2]; 
+    state_cur_(data_idx) = stm_.base_pos_[2];
     data_idx++;
 
     //rui - 3 self.base_lin_vel * self.obs_scales.lin_vel
@@ -602,6 +603,8 @@ void CustomController::processObservation() //rui observation 만들어주기
         state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);
         data_idx++;
     }
+    std::cout << "state_cur_" << std::endl;
+    std::cout << state_cur_ << std::endl;
     
 
     // Eigen::Quaterniond q;
@@ -710,8 +713,8 @@ void CustomController::feedforwardPolicy() //rui mlp feedforward
     }
 
     rl_action_ = action_net_w_ * hidden_layer_3 + action_net_b_;
-    std::cout << "rl_action_from feedforward" << std::endl;
-    std::cout << rl_action_ << std::endl;
+    // std::cout << "rl_action_from feedforward" << std::endl;
+    // std::cout << rl_action_ << std::endl;
     value_hidden_layer_1 = value_net_w0_ * state_ + value_net_b0_;
     for (int i = 0; i < num_hidden_0; i++) 
     {
@@ -788,8 +791,8 @@ void CustomController::computeSlow() //rui main
         }
         
 
-        std::cout << "torque_rl_" << std::endl;
-        std::cout << torque_rl_ << std::endl;
+        // std::cout << "torque_rl_" << std::endl;
+        // std::cout << torque_rl_ << std::endl;
 
         if (rd_cc_.control_time_us_ < start_time_ + 0.2e6) //rui torque 쏴주는것
         {

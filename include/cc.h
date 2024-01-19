@@ -1,5 +1,5 @@
 #include "dyros_bolt_lib/robot_data.h"
-// #include "dyros_bolt_controller/state_manager.h"
+#include "dyros_bolt_lib/state_manager.h"
 #include "wholebody_functions.h"
 #include <random>
 #include <cmath>
@@ -10,7 +10,7 @@
 class CustomController
 {
 public:
-    CustomController(RobotData &rd);
+    CustomController(RobotData &rd, StateManager &stm, DataContainer &dc);
     Eigen::VectorQd getControl();
 
     //void taskCommandToCC(TaskCommand tc_);
@@ -20,8 +20,8 @@ public:
     void computePlanner();
     void copyRobotData(RobotData &rd_l);
 
-    RobotData &rd_;
-    RobotData rd_cc_;
+
+    
     
 
     //////////////////////////////////////////// Donghyeon RL /////////////////////////////////////////
@@ -137,5 +137,10 @@ public:
     double policy_frequency_ = 250.0; //Hz
 
 private:
+    RobotData &rd_;
+    StateManager &stm_;
+    DataContainer &dc_;
+    RobotData rd_cc_;
+    // StateManager stm_cc_;
     Eigen::VectorQd ControlVal_;
 };
