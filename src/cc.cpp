@@ -37,7 +37,7 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     rl_action_.setZero();
 
 
-    string cur_path = "/home/kim/tocabi_ws/src/tocabi_cc/";
+    string cur_path = "/home/dyros/bolt_ws/src/dyros_bolt_cc/";
 
     if (is_on_robot_)
     {
@@ -423,11 +423,11 @@ void CustomController::initVariable() //rui 변수 초기화
 
     q_dot_lpf_.setZero();
 
-    torque_bound_ << 0, 0, 0, 
-                     0, 0, 0;  
+    torque_bound_ << 0.5, 0.5, 0.5, 
+                     0.5, 0.5, 0.5;  
                     
-    q_init_ << 0.0, 0.0, 0.0,
-               0.0, 0.0, 0.0;
+    q_init_ << 0.0, 0.2, -0.4,
+               0.0, 0.2, -0.4;
 
     kp_.setZero();
     kv_.setZero();
@@ -468,6 +468,20 @@ Eigen::Vector3d CustomController::quat_rotate_inverse(const Eigen::Quaterniond& 
     Eigen::Vector3d c = q_vec * (q_vec.dot(v) * 2.0);
 
     return a - b + c;
+}
+
+
+Eigen::MatrixXd CustomController::applyELU(const Eigen::MatrixXd& input, double alpha = 1.0) {
+    Eigen::MatrixXd output = input;
+
+    for (int i = 0; i < output.rows(); ++i) {
+        for (int j = 0; j < output.cols(); ++j) {
+            double x = output(i, j);
+            output(i, j) = (x > 0) ? x : alpha * (exp(x) - 1);
+        }
+    }
+
+    return output;
 }
 
 void CustomController::processNoise() //rui noise 만들어주기
@@ -533,17 +547,21 @@ void CustomController::processObservation() //rui observation 만들어주기
     */
     
     int data_idx = 0;
+    double obs_scales_lin_vel = 1.0;
+    double obs_scales_ang_vel = 0.25;
+    double commands_scale_target_vel_x_ = 1.0;
+    double commands_scale_target_vel_y_ = 1.0;
+    double commands_scale_ang_vel_yaw = 0.25;
+    double obs_scales_dof_pos = 1.0;
+    double obs_scales_dof_vel = 0.05;
 
 
-    base_lin_vel = rd_cc_.imu_lin_vel;
+    base_lin_vel = rd_cc_.imu_lin_vel; 
     base_ang_vel = rd_cc_.imu_ang_vel;
     base_link_quat = rd_cc_.base_link_xquat_rd;
     gravity_vector << 0, 0, -1;
     projected_gravity = quat_rotate_inverse(base_link_quat, gravity_vector);
-    std::cout << "base_lin_vel" << std::endl;
-    std::cout << base_lin_vel << std::endl;
     
-
     //rui - 2 self.contacts,
     state_cur_(data_idx) = stm_.foot_contact_(0);
     data_idx++;
@@ -553,17 +571,18 @@ void CustomController::processObservation() //rui observation 만들어주기
     state_cur_(data_idx) = stm_.base_pos_[2];
     data_idx++;
 
+
     //rui - 3 self.base_lin_vel * self.obs_scales.lin_vel
     for (auto i = 0; i < 3; i++) 
     {
-        state_cur_(data_idx) = base_lin_vel[i];
+        state_cur_(data_idx) = base_lin_vel[i] * obs_scales_lin_vel;
         data_idx++;
     }
     
     //rui - 3 self.base_ang_vel * self.obs_scales.ang_vel,
     for (auto i = 0; i < 3; i++) 
     {
-        state_cur_(data_idx) = base_ang_vel[i];
+        state_cur_(data_idx) = base_ang_vel[i] * obs_scales_ang_vel;
         data_idx++;
     }
 
@@ -575,25 +594,25 @@ void CustomController::processObservation() //rui observation 만들어주기
     }
 
     //rui - 3 self.commands[:, :3] * self.commands_scale,
-    state_cur_(data_idx) = target_vel_x_;
+    state_cur_(data_idx) = target_vel_x_ * commands_scale_target_vel_x_;
     data_idx++;
-    state_cur_(data_idx) = target_vel_y_;
+    state_cur_(data_idx) = target_vel_y_ * commands_scale_target_vel_y_;
     data_idx++;
-    state_cur_(data_idx) = target_vel_z_;
+    state_cur_(data_idx) = ang_vel_yaw * commands_scale_ang_vel_yaw;
     data_idx++;
     
 
     //rui - 6 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
     for (auto i = 0; i < num_actuator_action; i++) 
     {
-        state_cur_(data_idx) = q_noise_[i];
+        state_cur_(data_idx) = q_noise_[i] * obs_scales_dof_pos;
         data_idx++;
     }
 
     //rui - 6 self.dof_vel * self.obs_scales.dof_vel,
     for (auto i = 0; i < num_actuator_action; i++) 
     {
-        state_cur_(data_idx) = q_vel_noise_[i];
+        state_cur_(data_idx) = q_vel_noise_[i] * obs_scales_dof_vel;
         data_idx++;
     }
 
@@ -603,9 +622,8 @@ void CustomController::processObservation() //rui observation 만들어주기
         state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);
         data_idx++;
     }
-    std::cout << "state_cur_" << std::endl;
-    std::cout << state_cur_ << std::endl;
-    
+    // std::cout << "state_cur_" << std::endl;
+    // std::cout << state_cur_ << std::endl;
 
     // Eigen::Quaterniond q;
     // q.x() = rd_cc_.q_virtual_(3);
@@ -691,53 +709,70 @@ void CustomController::processObservation() //rui observation 만들어주기
 
 void CustomController::feedforwardPolicy() //rui mlp feedforward
 {
+    // std::cout << "policy_net_b0_" << std::endl;
+    // std::cout << policy_net_b0_ << std::endl;
+    // std::cout << "policy_net_w0_" << std::endl;
+    // std::cout << policy_net_w0_ << std::endl;
+    // std::cout << "state_feedforward" << std::endl;
+    // std::cout << state_ << std::endl;
+    // std::cout << "policy_net_w0_ * state_" << std::endl;
+    // std::cout << policy_net_w0_ * state_ << std::endl;
+
+
     hidden_layer_1 = policy_net_w0_ * state_ + policy_net_b0_;
-    for (int i = 0; i < num_hidden_0; i++) 
-    {
-        if (hidden_layer_1(i) < 0)
-            hidden_layer_1(i) = 0.0;
-    }
+    hidden_layer_1 = applyELU(hidden_layer_1);
+
+    // for (int i = 0; i < num_hidden_0; i++) 
+    // {
+    //     if (hidden_layer_1(i) < 0)
+    //         hidden_layer_1(i) = 0.0;
+    // }
 
     hidden_layer_2 = policy_net_w2_ * hidden_layer_1 + policy_net_b2_;
-    for (int i = 0; i < num_hidden_2; i++) 
-    {
-        if (hidden_layer_2(i) < 0)
-            hidden_layer_2(i) = 0.0;
-    }
+    hidden_layer_2 = applyELU(hidden_layer_2);
+    // for (int i = 0; i < num_hidden_2; i++) 
+    // {
+    //     if (hidden_layer_2(i) < 0)
+    //         hidden_layer_2(i) = 0.0;
+    // }
 
     hidden_layer_3 = policy_net_w4_ * hidden_layer_2 + policy_net_b4_;
-    for (int i = 0; i < num_hidden_4; i++) 
-    {
-        if (hidden_layer_3(i) < 0)
-            hidden_layer_3(i) = 0.0;
-    }
+    hidden_layer_3 = applyELU(hidden_layer_3);
+
+    // for (int i = 0; i < num_hidden_4; i++) 
+    // {
+    //     if (hidden_layer_3(i) < 0)
+    //         hidden_layer_3(i) = 0.0;
+    // }
 
     rl_action_ = action_net_w_ * hidden_layer_3 + action_net_b_;
-    // std::cout << "rl_action_from feedforward" << std::endl;
-    // std::cout << rl_action_ << std::endl;
+
+    
     value_hidden_layer_1 = value_net_w0_ * state_ + value_net_b0_;
-    for (int i = 0; i < num_hidden_0; i++) 
-    {
-        if (value_hidden_layer_1(i) < 0)
-            value_hidden_layer_1(i) = 0.0;
-    }
+    value_hidden_layer_1 = applyELU(value_hidden_layer_1);
+    // for (int i = 0; i < num_hidden_0; i++) 
+    // {
+    //     if (value_hidden_layer_1(i) < 0)
+    //         value_hidden_layer_1(i) = 0.0;
+    // }
 
     value_hidden_layer_2 = value_net_w2_ * value_hidden_layer_1 + value_net_b2_;
-    for (int i = 0; i < num_hidden_2; i++) 
-    {
-        if (value_hidden_layer_2(i) < 0)
-            value_hidden_layer_2(i) = 0.0;
-    }
+    value_hidden_layer_2 = applyELU(value_hidden_layer_2);
+    // for (int i = 0; i < num_hidden_2; i++) 
+    // {
+    //     if (value_hidden_layer_2(i) < 0)
+    //         value_hidden_layer_2(i) = 0.0;
+    // }
 
     value_hidden_layer_3 = value_net_w4_ * value_hidden_layer_2 + value_net_b4_;
-    for (int i = 0; i < num_hidden_4; i++) 
-    {
-        if (value_hidden_layer_3(i) < 0)
-            value_hidden_layer_3(i) = 0.0;
-    }
+    value_hidden_layer_3 = applyELU(value_hidden_layer_3);
+    // for (int i = 0; i < num_hidden_4; i++) 
+    // {
+    //     if (value_hidden_layer_3(i) < 0)
+    //         value_hidden_layer_3(i) = 0.0;
+    // }
 
     value_ = (value_net_w_ * value_hidden_layer_3 + value_net_b_)(0);
-    
 }
 
 void CustomController::computeSlow() //rui main
@@ -785,14 +820,10 @@ void CustomController::computeSlow() //rui main
         {
             torque_rl_(i) = DyrosMath::minmax_cut(rl_action_(i)*torque_bound_(i), -torque_bound_(i), torque_bound_(i));
         }
-        for (int i = num_actuator_action; i < MODEL_DOF; i++)
-        {
-            torque_rl_(i) = kp_(i,i) * (q_init_(i) - q_noise_(i)) - kv_(i,i)*q_vel_noise_(i);
-        }
-        
-
-        // std::cout << "torque_rl_" << std::endl;
-        // std::cout << torque_rl_ << std::endl;
+        // for (int i = num_actuator_action; i < MODEL_DOF; i++) //rui - upper for tocabi
+        // {
+        //     torque_rl_(i) = kp_(i,i) * (q_init_(i) - q_noise_(i)) - kv_(i,i)*q_vel_noise_(i);
+        // }
 
         if (rd_cc_.control_time_us_ < start_time_ + 0.2e6) //rui torque 쏴주는것
         {
@@ -807,20 +838,22 @@ void CustomController::computeSlow() //rui main
              rd_.torque_desired = torque_rl_;
         }
 
-        if (value_ < 50.0)
-        {
-            if (stop_by_value_thres_ == false)
-            {
-                stop_by_value_thres_ = true;
-                stop_start_time_ = rd_cc_.control_time_us_;
-                q_stop_ = q_noise_;
-                std::cout << "Stop by Value Function" << std::endl;
-            }
-        }
-        if (stop_by_value_thres_)
-        {
-            rd_.torque_desired = kp_ * (q_stop_ - q_noise_) - kv_*q_vel_noise_;
-        }
+        
+
+        // if (value_ < 50.0)
+        // {
+        //     if (stop_by_value_thres_ == false)
+        //     {
+        //         stop_by_value_thres_ = true;
+        //         stop_start_time_ = rd_cc_.control_time_us_;
+        //         q_stop_ = q_noise_;
+        //         std::cout << "Stop by Value Function" << std::endl;
+        //     }
+        // }
+        // if (stop_by_value_thres_)
+        // {
+        //     rd_.torque_desired = kp_ * (q_stop_ - q_noise_) - kv_*q_vel_noise_;
+        // }
 
         if (is_write_file_) //rui 파일 write
         {
@@ -848,7 +881,6 @@ void CustomController::computeSlow() //rui main
                 time_write_pre_ = rd_cc_.control_time_us_;
             }
         }
-
     }
 }
 
