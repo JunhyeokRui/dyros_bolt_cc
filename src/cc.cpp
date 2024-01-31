@@ -1,6 +1,14 @@
 #include "cc.h"
+#include <X11/Xlib.h>
 #include <rbdl/Kinematics.h>
 #include <yaml-cpp/yaml.h>
+
+//ANCHOR - for policy test
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+
 
 using namespace DYROS_BOLT;
 
@@ -29,6 +37,51 @@ CustomController::CustomController(RobotData &rd, StateManager &stm, DataContain
 Eigen::VectorQd CustomController::getControl()
 {
     return ControlVal_;
+}
+
+Eigen::Vector3d CustomController::mat2euler(Eigen::Matrix3d mat)
+{
+    Eigen::Vector3d euler;
+
+    double cy = std::sqrt(mat(2, 2) * mat(2, 2) + mat(1, 2) * mat(1, 2));
+    if (cy > std::numeric_limits<double>::epsilon())
+    {
+        euler(2) = -atan2(mat(0, 1), mat(0, 0));
+        euler(1) =  -atan2(-mat(0, 2), cy);
+        euler(0) = -atan2(mat(1, 2), mat(2, 2));
+    }
+    else
+    {
+        euler(2) = -atan2(-mat(1, 0), mat(1, 1));
+        euler(1) =  -atan2(-mat(0, 2), cy);
+        euler(0) = 0.0;
+    }
+    return euler;
+}
+
+Eigen::Vector3d CustomController::quat_rotate_inverse(const Eigen::Quaterniond& q, const Eigen::Vector3d& v) 
+{
+    Eigen::Vector3d q_vec = q.vec();
+    double q_w = q.w();
+
+    Eigen::Vector3d a = v * (2.0 * q_w * q_w - 1.0);
+    Eigen::Vector3d b = q_vec.cross(v) * q_w * 2.0;
+    Eigen::Vector3d c = q_vec * (q_vec.dot(v) * 2.0);
+
+    return a - b + c;
+}
+
+Eigen::MatrixXd CustomController::applyELU(const Eigen::MatrixXd& input, double alpha = 1.0) {
+    Eigen::MatrixXd output = input;
+
+    for (int i = 0; i < output.rows(); ++i) {
+        for (int j = 0; j < output.cols(); ++j) {
+            double x = output(i, j);
+            output(i, j) = (x > 0) ? x : alpha * (exp(x) - 1);
+        }
+    }
+
+    return output;
 }
 
 void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL 파일 저장된 12개 파일 저장해주면 됨
@@ -62,35 +115,11 @@ void CustomController::loadNetwork() //rui weight 불러오기 weight TocabiRL �
     file[15].open(cur_path+"weight/critic_6_bias.txt", std::ios::in);
     file[16].open(cur_path+"weight/obs_mean_fixed.txt", std::ios::in);
     file[17].open(cur_path+"weight/obs_variance_fixed.txt", std::ios::in);
-    
 
     if(!file[0].is_open())
     {
         std::cout << "CAN NOT FIND THE WEIGHT FILE" << std::endl;
     }
-
-
-    // std::ifstream file[14];
-    // file[0].open(cur_path+"weight/mlp_extractor_policy_net_0_weight.txt", std::ios::in);
-    // file[1].open(cur_path+"weight/mlp_extractor_policy_net_0_bias.txt", std::ios::in);
-    // file[2].open(cur_path+"weight/mlp_extractor_policy_net_2_weight.txt", std::ios::in);
-    // file[3].open(cur_path+"weight/mlp_extractor_policy_net_2_bias.txt", std::ios::in);
-    // file[4].open(cur_path+"weight/action_net_weight.txt", std::ios::in);
-    // file[5].open(cur_path+"weight/action_net_bias.txt", std::ios::in);
-    // file[6].open(cur_path+"weight/obs_mean_fixed.txt", std::ios::in);
-    // file[7].open(cur_path+"weight/obs_variance_fixed.txt", std::ios::in);
-    // file[8].open(cur_path+"weight/mlp_extractor_value_net_0_weight.txt", std::ios::in);
-    // file[9].open(cur_path+"weight/mlp_extractor_value_net_0_bias.txt", std::ios::in);
-    // file[10].open(cur_path+"weight/mlp_extractor_value_net_2_weight.txt", std::ios::in);
-    // file[11].open(cur_path+"weight/mlp_extractor_value_net_2_bias.txt", std::ios::in);
-    // file[12].open(cur_path+"weight/value_net_weight.txt", std::ios::in);
-    // file[13].open(cur_path+"weight/value_net_bias.txt", std::ios::in);
-
-
-    // if(!file[0].is_open())
-    // {
-    //     std::cout<<"Can not find the weight file"<<std::endl;
-    // }
 
     float temp;
     int row = 0;
@@ -414,6 +443,7 @@ void CustomController::initVariable() //rui 변수 초기화
     value_hidden_layer_3.resize(num_hidden_4, 1);
     
     state_cur_.resize(num_cur_state, 1);
+    state_cur_clipped_.resize(num_cur_state, 1);
     
     state_.resize(num_state, 1);
 
@@ -423,11 +453,17 @@ void CustomController::initVariable() //rui 변수 초기화
 
     q_dot_lpf_.setZero();
 
-    torque_bound_ << 0.5, 0.5, 0.5, 
-                     0.5, 0.5, 0.5;  
-                    
-    q_init_ << 0.0, 0.2, -0.4,
-               0.0, 0.2, -0.4;
+    torque_bound_ << 25, 25, 25, 
+                     25, 25, 25;  
+    // torque_bound_ << 2.5, 2.5, 2.5, 
+    //                  2.5, 2.5, 2.5; 
+    obs_bound_ << 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 
+                 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+                 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100;
+    
+    q_init_ << 0.0000,  0.2000, -0.4000,  0.0000,  0.2000, -0.4000;
+    // q_init_ << 0.2, -1.8, -0.4,
+    //            0.2, -1.8, -0.4;
 
     kp_.setZero();
     kv_.setZero();
@@ -438,95 +474,63 @@ void CustomController::initVariable() //rui 변수 초기화
                         0.0, 0.0, 0.0;
 }
 
-Eigen::Vector3d CustomController::mat2euler(Eigen::Matrix3d mat)
-{
-    Eigen::Vector3d euler;
-
-    double cy = std::sqrt(mat(2, 2) * mat(2, 2) + mat(1, 2) * mat(1, 2));
-    if (cy > std::numeric_limits<double>::epsilon())
-    {
-        euler(2) = -atan2(mat(0, 1), mat(0, 0));
-        euler(1) =  -atan2(-mat(0, 2), cy);
-        euler(0) = -atan2(mat(1, 2), mat(2, 2));
-    }
-    else
-    {
-        euler(2) = -atan2(-mat(1, 0), mat(1, 1));
-        euler(1) =  -atan2(-mat(0, 2), cy);
-        euler(0) = 0.0;
-    }
-    return euler;
-}
-
-Eigen::Vector3d CustomController::quat_rotate_inverse(const Eigen::Quaterniond& q, const Eigen::Vector3d& v) 
-{
-    Eigen::Vector3d q_vec = q.vec();
-    double q_w = q.w();
-
-    Eigen::Vector3d a = v * (2.0 * q_w * q_w - 1.0);
-    Eigen::Vector3d b = q_vec.cross(v) * q_w * 2.0;
-    Eigen::Vector3d c = q_vec * (q_vec.dot(v) * 2.0);
-
-    return a - b + c;
-}
-
-
-Eigen::MatrixXd CustomController::applyELU(const Eigen::MatrixXd& input, double alpha = 1.0) {
-    Eigen::MatrixXd output = input;
-
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
-            double x = output(i, j);
-            output(i, j) = (x > 0) ? x : alpha * (exp(x) - 1);
-        }
-    }
-
-    return output;
-}
-
 void CustomController::processNoise() //rui noise 만들어주기
 {
     time_cur_ = rd_cc_.control_time_us_ / 1e6;
-    if (is_on_robot_)
-    {
-        q_vel_noise_ = rd_cc_.q_dot_virtual_.segment(6,MODEL_DOF);
-        q_noise_= rd_cc_.q_virtual_.segment(6,MODEL_DOF);
-        if (time_cur_ - time_pre_ > 0.0)
-        {
-            q_dot_lpf_ = DyrosMath::lpf<MODEL_DOF>(q_vel_noise_, q_dot_lpf_, 1/(time_cur_ - time_pre_), 4.0);
-        }
-        else
-        {
-            q_dot_lpf_ = q_dot_lpf_;
-        }
+    // if (is_on_robot_)
+    // {
+    //     q_vel_noise_ = rd_cc_.q_dot_virtual_.segment(6,MODEL_DOF);
+    //     q_noise_= rd_cc_.q_virtual_.segment(6,MODEL_DOF);
+    //     if (time_cur_ - time_pre_ > 0.0)
+    //     {
+    //         q_dot_lpf_ = DyrosMath::lpf<MODEL_DOF>(q_vel_noise_, q_dot_lpf_, 1/(time_cur_ - time_pre_), 4.0);
+    //     }
+    //     else
+    //     {
+    //         q_dot_lpf_ = q_dot_lpf_;
+    //     }
 
         
-    }
-    else
-    {
-        std::random_device rd;  
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> dis(-0.00001, 0.00001);
-        for (int i = 0; i < MODEL_DOF; i++) {
-            q_noise_(i) = rd_cc_.q_virtual_(6+i) + dis(gen);
-        }
-        if (time_cur_ - time_pre_ > 0.0)
-        {
-            q_vel_noise_ = (q_noise_ - q_noise_pre_) / (time_cur_ - time_pre_);
-            q_dot_lpf_ = DyrosMath::lpf<MODEL_DOF>(q_vel_noise_, q_dot_lpf_, 1/(time_cur_ - time_pre_), 4.0);
-        }
-        else
-        {
-            q_vel_noise_ = q_vel_noise_;
-            q_dot_lpf_ = q_dot_lpf_;
-        }
-        q_noise_pre_ = q_noise_;
+    // }
+    // else
+    // {
+    //     std::random_device rd;  
+    //     std::mt19937 gen(rd());
+    //     std::uniform_real_distribution<> dis(-0.00001, 0.00001);
+    //     for (int i = 0; i < MODEL_DOF; i++) {
+    //         // q_noise_(i) = rd_cc_.q_virtual_(6+i) + dis(gen);
+    //         q_noise_(i) = rd_cc_.q_virtual_(6+i);
+    //     }
+    //     if (time_cur_ - time_pre_ > 0.0)
+    //     {
+    //         q_vel_noise_ = (q_noise_ - q_noise_pre_) / (time_cur_ - time_pre_);
+    //         q_dot_lpf_ = DyrosMath::lpf<MODEL_DOF>(q_vel_noise_, q_dot_lpf_, 1/(time_cur_ - time_pre_), 4.0);
+    //     }
+    //     else
+    //     {
+    //         q_vel_noise_ = q_vel_noise_;
+    //         q_dot_lpf_ = q_dot_lpf_;
+    //     }
+    //     q_noise_pre_ = q_noise_;
 
         
-    }
-    time_pre_ = time_cur_;
 
-    
+    // }
+    // q_vel_noise_ = rd_cc_.q_dot_virtual_.segment(6,MODEL_DOF);
+    // q_noise_= rd_cc_.q_virtual_.segment(6,MODEL_DOF);
+
+//rui - for debug start
+    // std::cout << "rd_cc_.q_dot_virtual_" << std::endl;
+    // std::cout << rd_cc_.q_dot_virtual_ << std::endl;
+    // std::cout << "rd_cc_.q_virtual_" << std::endl;
+    // std::cout << rd_cc_.q_virtual_ << std::endl;
+    // std::cout << "q_noise_" << std::endl;
+    // std::cout << q_noise_ << std::endl;
+    // std::cout << "q_vel_noise_" << std::endl;
+    // std::cout << q_vel_noise_ << std::endl;
+
+//rui - for debug end
+
 }
 
 void CustomController::processObservation() //rui observation 만들어주기 
@@ -554,14 +558,35 @@ void CustomController::processObservation() //rui observation 만들어주기
     double commands_scale_ang_vel_yaw = 0.25;
     double obs_scales_dof_pos = 1.0;
     double obs_scales_dof_vel = 0.05;
-
-
-    base_lin_vel = rd_cc_.imu_lin_vel; 
-    base_ang_vel = rd_cc_.imu_ang_vel;
+    // base_lin_vel = rd_cc_.imu_lin_vel; 
+    // base_ang_vel = rd_cc_.imu_ang_vel;
     base_link_quat = rd_cc_.base_link_xquat_rd;
     gravity_vector << 0, 0, -1;
+    // std::cout << "base_link_quat" << std::endl;
+    // std::cout << base_link_quat.x() << " " << base_link_quat.y() << " " << base_link_quat.z() << " " << base_link_quat.w() << std::endl;
     projected_gravity = quat_rotate_inverse(base_link_quat, gravity_vector);
+    q_dot_cc = stm_.q_vel_cc_.segment(0,MODEL_DOF);
+    q_cc = stm_.q_pos_cc_.segment(0,MODEL_DOF);
+    q_dot_virtual_cc = stm_.q_vel_virtual_cc_.segment(0, 6);
+
+//rui - for debug start
+    // Eigen::Quaterniond quat_example;
+    // Eigen::Vector3d projected_gravity_tester;
+    // quat_example.x() = -0.329;
+    // quat_example.y() = 0.313;
+    // quat_example.z() = 0.845;
+    // quat_example.w() = -0.282;
+    // projected_gravity_tester = quat_rotate_inverse(quat_example, gravity_vector);
+    // std::cout << "projected_gravity_tester" << std::endl;
+    // std::cout << projected_gravity_tester << std::endl;
     
+    // std::cout << "gravity_vector" << std::endl;
+    // std::cout << gravity_vector << std::endl;
+    // std::cout << "projected_gravity" << std::endl;
+    // std::cout << projected_gravity << std::endl;
+//rui - for debug end
+
+//ANCHOR - start of state_cur
     //rui - 2 self.contacts,
     state_cur_(data_idx) = stm_.foot_contact_(0);
     data_idx++;
@@ -569,20 +594,23 @@ void CustomController::processObservation() //rui observation 만들어주기
     data_idx++;
     //rui - 1 self.base_z,
     state_cur_(data_idx) = stm_.base_pos_[2];
+    // state_cur_(data_idx) = 0.5;
     data_idx++;
-
 
     //rui - 3 self.base_lin_vel * self.obs_scales.lin_vel
     for (auto i = 0; i < 3; i++) 
     {
-        state_cur_(data_idx) = base_lin_vel[i] * obs_scales_lin_vel;
+        // state_cur_(data_idx) = base_lin_vel[i] * obs_scales_lin_vel;
+        state_cur_(data_idx) = q_dot_virtual_cc[i] * obs_scales_lin_vel;
+        // state_cur_(data_idx) = 0;
         data_idx++;
     }
-    
     //rui - 3 self.base_ang_vel * self.obs_scales.ang_vel,
     for (auto i = 0; i < 3; i++) 
     {
-        state_cur_(data_idx) = base_ang_vel[i] * obs_scales_ang_vel;
+        // state_cur_(data_idx) = base_ang_vel[i] * obs_scales_ang_vel;
+        state_cur_(data_idx) = q_dot_virtual_cc[3 + i] * obs_scales_ang_vel;
+        // state_cur_(data_idx) = 0;
         data_idx++;
     }
 
@@ -590,6 +618,11 @@ void CustomController::processObservation() //rui observation 만들어주기
     for (auto i = 0; i < 3; i++) 
     {
         state_cur_(data_idx) = projected_gravity[i];
+        // state_cur_(data_idx) = 0;
+        // if (i == 2)
+        // {
+        //     state_cur_(data_idx) = -1;
+        // }
         data_idx++;
     }
 
@@ -605,174 +638,136 @@ void CustomController::processObservation() //rui observation 만들어주기
     //rui - 6 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
     for (auto i = 0; i < num_actuator_action; i++) 
     {
-        state_cur_(data_idx) = q_noise_[i] * obs_scales_dof_pos;
+        state_cur_(data_idx) = (q_cc(i) - q_init_(i)) * obs_scales_dof_pos;
         data_idx++;
     }
 
     //rui - 6 self.dof_vel * self.obs_scales.dof_vel,
     for (auto i = 0; i < num_actuator_action; i++) 
     {
-        state_cur_(data_idx) = q_vel_noise_[i] * obs_scales_dof_vel;
+        state_cur_(data_idx) = q_dot_cc(i) * obs_scales_dof_vel;
         data_idx++;
     }
 
     //rui - 6 self.actions
     for (auto i = 0; i < num_actuator_action; i++) 
     {
-        state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);
+        state_cur_(data_idx) = rl_action_(i); //DyrosMath::minmax_cut(rl_action_(i), -25.0, 25.0);
         data_idx++;
     }
-    // std::cout << "state_cur_" << std::endl;
-    // std::cout << state_cur_ << std::endl;
+//ANCHOR - end of state_cur
 
-    // Eigen::Quaterniond q;
-    // q.x() = rd_cc_.q_virtual_(3);
-    // q.y() = rd_cc_.q_virtual_(4);
-    // q.z() = rd_cc_.q_virtual_(5);
-    // q.w() = rd_cc_.q_virtual_(MODEL_DOF_QVIRTUAL-1);    
-
-    // euler_angle_ = DyrosMath::rot2Euler_tf(q.toRotationMatrix());
-
-    // state_cur_(data_idx) = euler_angle_(0);
-    // data_idx++;
-
-    // state_cur_(data_idx) = euler_angle_(1);
-    // data_idx++;
-
-    // state_cur_(data_idx) = euler_angle_(2);
-    // data_idx++;
-
-
-    // for (int i = 0; i < num_actuator_action; i++)
-    // {
-    //     state_cur_(data_idx) = q_noise_(i);
-    //     data_idx++;
-    // }
-
-    // for (int i = 0; i < num_actuator_action; i++)
-    // {
-    //     if (is_on_robot_)
-    //     {
-    //         state_cur_(data_idx) = q_vel_noise_(i);
-    //     }
-    //     else
-    //     {
-    //         state_cur_(data_idx) = q_vel_noise_(i); //rd_cc_.q_dot_virtual_(i+6); //q_vel_noise_(i);
-    //     }
-    //     data_idx++;
-    // }
-
-    // float squat_duration = 1.7995;
-    // phase_ = std::fmod((rd_cc_.control_time_us_-start_time_)/1e6 + action_dt_accumulate_, squat_duration) / squat_duration;
-    // state_cur_(data_idx) = sin(2*M_PI*phase_);
-    // data_idx++;
-    // state_cur_(data_idx) = cos(2*M_PI*phase_);
-    // data_idx++;
-
-    // state_cur_(data_idx) = 0.2;//target_vel_x_;
-    // data_idx++;
-
-    // state_cur_(data_idx) = target_vel_y_;
-    // data_idx++;
-
-    // // state_cur_(data_idx) = rd_cc_.LF_FT(2);
-    // // data_idx++;
-
-    // // state_cur_(data_idx) = rd_cc_.RF_FT(2);
-    // // data_idx++;
-
-    // for (int i = 0; i < num_actuator_action; i++) 
-    // {
-    //     state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(i), -1.0, 1.0);
-    //     data_idx++;
-    // }
-    // state_cur_(data_idx) = DyrosMath::minmax_cut(rl_action_(num_actuator_action), 0.0, 1.0);
-    // data_idx++;
+//ANCHOR - start of csv file
     
-    // state_buffer_.block(0, 0, num_cur_state*(num_state_skip*num_state_hist-1),1) = state_buffer_.block(num_cur_state, 0, num_cur_state*(num_state_skip*num_state_hist-1),1);
-    // state_buffer_.block(num_cur_state*(num_state_skip*num_state_hist-1), 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
-
-    // // Internal State First
-    // for (int i = 0; i < num_state_hist; i++)
-    // {
-    //     state_.block(num_cur_internal_state*i, 0, num_cur_internal_state, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)-1), 0, num_cur_internal_state, 1);
-    // }
-    // // Action History Second
-    // for (int i = 0; i < num_state_hist-1; i++)
-    // {
-    //     state_.block(num_state_hist*num_cur_internal_state + num_action*i, 0, num_action, 1) = state_buffer_.block(num_cur_state*(num_state_skip*(i+1)) + num_cur_internal_state, 0, num_action, 1);
+    // std::ifstream file("/home/dyros/bolt_ws/src/dyros_bolt_cc/policy_input_3.csv");
+    // if (!file.is_open()) {
+    //     std::cerr << "Error opening file" << std::endl;
     // }
 
-    // state_.block(0, 0, num_cur_state,1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
-    state_.block(0, 0, num_cur_state, 1) = state_cur_.array();
+
+    // std::string line;
+    // int currentLine = 0;
+    // linecount_++;
+
+    // while (std::getline(file, line)) {
+    //     if (currentLine == linecount_) {
+    //         std::stringstream ss(line);
+    //         std::string value;
+    //         int idx = 0;
+    //         while (std::getline(ss, value, ',')) {
+    //             state_cur_(idx) = std::stod(value);
+    //             idx++;
+    //         }
+                
+
+    //         //rui - 2 self.contacts,
+            
+    //         //rui - 1 self.base_z,
+            
+    //         //rui - 3 self.base_lin_vel * self.obs_scales.lin_vel
+            
+    //         //rui - 3 self.base_ang_vel * self.obs_scales.ang_vel,
+
+    //         //rui - 3 self.projected_gravity,
+
+    //         //rui - 3 self.commands[:, :3] * self.commands_scale,
+
+    //         //rui - 6 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+
+    //         //rui - 6 self.dof_vel * self.obs_scales.dof_vel,
+
+    //         //rui - 6 self.actions
+    //     }
+    //     currentLine++;
+    // }
+
+    // file.close();
+//ANCHOR - end of csv file
+
+//ANCHOR - state_cur_output start
+    std::ofstream outfile2("/home/dyros/bolt_ws/src/dyros_bolt_cc/state_cur_log.csv", std::ios::app); // Open in append mode
+    if (!outfile2.is_open()) {
+        std::cerr << "Error opening output file" << std::endl;
+    }
+    for (int i = 0; i < state_cur_.size(); ++i) 
+    {
+        outfile2 << state_cur_(i);
+        if (i < state_cur_.size() - 1) {
+            outfile2 << ", "; // CSV delimiter
+        }
+    }
+    outfile2 << std::endl; // New line for the next vector
+
+//ANCHOR - state_cur_output end
+
+    
+    for (int i = 0; i < num_cur_state; i++)
+    {
+        state_cur_clipped_(i) = DyrosMath::minmax_cut(state_cur_(i), -obs_bound_(i), obs_bound_(i));
+    }
+    state_.block(0, 0, num_cur_state, 1) = state_cur_clipped_.array();
 }
 
 void CustomController::feedforwardPolicy() //rui mlp feedforward
 {
-    // std::cout << "policy_net_b0_" << std::endl;
-    // std::cout << policy_net_b0_ << std::endl;
-    // std::cout << "policy_net_w0_" << std::endl;
-    // std::cout << policy_net_w0_ << std::endl;
-    // std::cout << "state_feedforward" << std::endl;
-    // std::cout << state_ << std::endl;
-    // std::cout << "policy_net_w0_ * state_" << std::endl;
-    // std::cout << policy_net_w0_ * state_ << std::endl;
-
 
     hidden_layer_1 = policy_net_w0_ * state_ + policy_net_b0_;
     hidden_layer_1 = applyELU(hidden_layer_1);
 
-    // for (int i = 0; i < num_hidden_0; i++) 
-    // {
-    //     if (hidden_layer_1(i) < 0)
-    //         hidden_layer_1(i) = 0.0;
-    // }
-
     hidden_layer_2 = policy_net_w2_ * hidden_layer_1 + policy_net_b2_;
     hidden_layer_2 = applyELU(hidden_layer_2);
-    // for (int i = 0; i < num_hidden_2; i++) 
-    // {
-    //     if (hidden_layer_2(i) < 0)
-    //         hidden_layer_2(i) = 0.0;
-    // }
 
     hidden_layer_3 = policy_net_w4_ * hidden_layer_2 + policy_net_b4_;
     hidden_layer_3 = applyELU(hidden_layer_3);
 
-    // for (int i = 0; i < num_hidden_4; i++) 
-    // {
-    //     if (hidden_layer_3(i) < 0)
-    //         hidden_layer_3(i) = 0.0;
-    // }
-
     rl_action_ = action_net_w_ * hidden_layer_3 + action_net_b_;
 
-    
     value_hidden_layer_1 = value_net_w0_ * state_ + value_net_b0_;
     value_hidden_layer_1 = applyELU(value_hidden_layer_1);
-    // for (int i = 0; i < num_hidden_0; i++) 
-    // {
-    //     if (value_hidden_layer_1(i) < 0)
-    //         value_hidden_layer_1(i) = 0.0;
-    // }
 
     value_hidden_layer_2 = value_net_w2_ * value_hidden_layer_1 + value_net_b2_;
     value_hidden_layer_2 = applyELU(value_hidden_layer_2);
-    // for (int i = 0; i < num_hidden_2; i++) 
-    // {
-    //     if (value_hidden_layer_2(i) < 0)
-    //         value_hidden_layer_2(i) = 0.0;
-    // }
 
     value_hidden_layer_3 = value_net_w4_ * value_hidden_layer_2 + value_net_b4_;
     value_hidden_layer_3 = applyELU(value_hidden_layer_3);
-    // for (int i = 0; i < num_hidden_4; i++) 
-    // {
-    //     if (value_hidden_layer_3(i) < 0)
-    //         value_hidden_layer_3(i) = 0.0;
-    // }
 
     value_ = (value_net_w_ * value_hidden_layer_3 + value_net_b_)(0);
+
+//ANCHOR - start of output csv file
+    // std::ofstream outfile("/home/dyros/bolt_ws/src/dyros_bolt_cc/output_file_test3.csv", std::ios::app); // Open in append mode
+    // if (!outfile.is_open()) {
+    //     std::cerr << "Error opening output file" << std::endl;
+    // }
+    // for (int i = 0; i < rl_action_.size(); ++i) 
+    // {
+    //     outfile << rl_action_(i);
+    //     if (i < rl_action_.size() - 1) {
+    //         outfile << ", "; // CSV delimiter
+    //     }
+    // }
+    // outfile << std::endl; // New line for the next vector
+//ANCHOR - end of output csv file
+
 }
 
 void CustomController::computeSlow() //rui main
@@ -782,49 +777,36 @@ void CustomController::computeSlow() //rui main
     {
         if (rd_cc_.tc_init)
         {
-            //Initialize settings for Task Control! 
             start_time_ = rd_cc_.control_time_us_;
-            q_noise_pre_ = q_noise_ = q_init_ = rd_cc_.q_virtual_.segment(6,MODEL_DOF);
-            std::cout << rd_cc_.q_virtual_.size() << std::endl;
-            std::cout << rd_cc_.q_virtual_.segment(6,MODEL_DOF) << std::endl;
-            time_cur_ = start_time_ / 1e6;
-            time_pre_ = time_cur_ - 0.005;
-        
-            rd_.tc_init = false;
             std::cout<<"cc mode 8"<<std::endl;
+        
             torque_init_ = rd_cc_.torque_desired;
 
             processNoise();
             processObservation();
-            // for (int i = 0; i < num_state_skip*num_state_hist; i++) 
-            // {
-            //     state_buffer_.block(num_cur_state*i, 0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
-            // }
-            // state_.block(0,0, num_cur_state, 1) = (state_cur_ - state_mean_).array() / state_var_.cwiseSqrt().array();
+            std::cout << "state_cur" << std::endl;
+            std::cout << state_cur_ << std::endl;
             state_.block(0,0, num_cur_state, 1) = state_cur_.array();
+
+            rd_.tc_init = false;
         }
 
         processNoise();
 
         // processObservation and feedforwardPolicy mean time: 15 us, max 53 us 
-        if ((rd_cc_.control_time_us_ - time_inference_pre_)/1.0e6 > 1/policy_frequency_) //rui 250hz 변수만들어서 바꿔주기
+        if (framecounter_ == frameskip) //rui 250hz 변수만들어서 바꿔주기
         {
             processObservation();
             feedforwardPolicy();
             
-            action_dt_accumulate_ += DyrosMath::minmax_cut(rl_action_(num_action-1)*1/policy_frequency_, 0.0, 1/policy_frequency_);
-            time_inference_pre_ = rd_cc_.control_time_us_;
+            framecounter_ = 0; 
         }
+        framecounter_++;
 
         for (int i = 0; i < num_actuator_action; i++)
         {
-            torque_rl_(i) = DyrosMath::minmax_cut(rl_action_(i)*torque_bound_(i), -torque_bound_(i), torque_bound_(i));
+            torque_rl_(i) = DyrosMath::minmax_cut(rl_action_(i), -torque_bound_(i), torque_bound_(i));
         }
-        // for (int i = num_actuator_action; i < MODEL_DOF; i++) //rui - upper for tocabi
-        // {
-        //     torque_rl_(i) = kp_(i,i) * (q_init_(i) - q_noise_(i)) - kv_(i,i)*q_vel_noise_(i);
-        // }
-
         if (rd_cc_.control_time_us_ < start_time_ + 0.2e6) //rui torque 쏴주는것
         {
             for (int i = 0; i <MODEL_DOF; i++)
@@ -837,8 +819,47 @@ void CustomController::computeSlow() //rui main
         {
              rd_.torque_desired = torque_rl_;
         }
+        
+        // rd_.torque_desired.setZero();
+
+//ANCHOR - start of output csv file
+        // std::ofstream outfile3("/home/dyros/bolt_ws/src/dyros_bolt_cc/output_file_test_3.csv", std::ios::app); // Open in append mode
+        // if (!outfile3.is_open()) {
+        //     std::cerr << "Error opening output file" << std::endl;
+        // }
+        // for (int i = 0; i < torque_rl_.size(); ++i) 
+        // {
+        //     outfile3 << torque_rl_(i);
+        //     if (i < torque_rl_.size() - 1) {
+        //         outfile3 << ", "; // CSV delimiter
+        //     }
+        // }
+        // outfile3 << std::endl; // New line for the next vector
+//ANCHOR - end of output csv file
 
         
+
+//ANCHOR - for debug start
+        // std::cout << "torque_rl_" << std::endl;
+        // std::cout << torque_rl_ << std::endl;
+        // std::cout << "rl_action_" << std::endl;
+        // std::cout << rl_action_ << std::endl;
+        // try {
+        //     YAML::Node config = YAML::LoadFile("/home/dyros/bolt_ws/src/dyros_bolt_cc/src/torque.yaml");  // Load the YAML file
+        //     Eigen::VectorXd torque_vector(6);
+
+        //         for (int i = 0; i < 6; ++i) {
+        //             torque_vector(i) = config["torque"][i].as<double>();  // Fill the vector
+        //     }
+
+        //     rd_.torque_desired = torque_vector.transpose();
+        // } catch (const YAML::Exception& e) {
+        //     std::cerr << "Error reading YAML file: " << e.what() << std::endl;
+        // }
+        // std::cout << "rd_.torque_desired" << std::endl;
+        // std::cout << rd_.torque_desired << std::endl;
+//ANCHOR - for debug end
+
 
         // if (value_ < 50.0)
         // {
@@ -855,32 +876,32 @@ void CustomController::computeSlow() //rui main
         //     rd_.torque_desired = kp_ * (q_stop_ - q_noise_) - kv_*q_vel_noise_;
         // }
 
-        if (is_write_file_) //rui 파일 write
-        {
-            if ((rd_cc_.control_time_us_ - time_write_pre_)/1e6 > 1/240.0)
-            {
-                writeFile << (rd_cc_.control_time_us_ - start_time_)/1e6 << "\t";
-                // writeFile << phase_ << "\t";
-                writeFile << DyrosMath::minmax_cut(rl_action_(num_action-1)*1/policy_frequency_, 0.0, 1/policy_frequency_) << "\t";
+        // if (is_write_file_) //rui 파일 write
+        // {
+        //     if ((rd_cc_.control_time_us_ - time_write_pre_)/1e6 > 1/240.0)
+        //     {
+        //         writeFile << (rd_cc_.control_time_us_ - start_time_)/1e6 << "\t";
+        //         // writeFile << phase_ << "\t";
+        //         // writeFile << DyrosMath::minmax_cut(rl_action_(num_action-1)*1/policy_frequency_, 0.0, 1/policy_frequency_) << "\t";
 
-                writeFile << rd_cc_.LF_FT.transpose() << "\t";
-                writeFile << rd_cc_.RF_FT.transpose() << "\t";
-                writeFile << rd_cc_.LF_CF_FT.transpose() << "\t";
-                writeFile << rd_cc_.RF_CF_FT.transpose() << "\t";
+        //         writeFile << rd_cc_.LF_FT.transpose() << "\t";
+        //         writeFile << rd_cc_.RF_FT.transpose() << "\t";
+        //         writeFile << rd_cc_.LF_CF_FT.transpose() << "\t";
+        //         writeFile << rd_cc_.RF_CF_FT.transpose() << "\t";
 
-                writeFile << rd_cc_.torque_desired.transpose()  << "\t";
-                writeFile << q_noise_.transpose() << "\t";
-                writeFile << q_dot_lpf_.transpose() << "\t";
-                writeFile << rd_cc_.q_dot_virtual_.transpose() << "\t";
-                writeFile << rd_cc_.q_virtual_.transpose() << "\t";
+        //         writeFile << rd_cc_.torque_desired.transpose()  << "\t";
+        //         writeFile << q_noise_.transpose() << "\t";
+        //         writeFile << q_dot_lpf_.transpose() << "\t";
+        //         writeFile << rd_cc_.q_dot_virtual_.transpose() << "\t";
+        //         writeFile << rd_cc_.q_virtual_.transpose() << "\t";
 
-                writeFile << value_ << "\t" << stop_by_value_thres_;
+        //         writeFile << value_ << "\t" << stop_by_value_thres_;
                
-                writeFile << std::endl;
+        //         writeFile << std::endl;
 
-                time_write_pre_ = rd_cc_.control_time_us_;
-            }
-        }
+        //         time_write_pre_ = rd_cc_.control_time_us_;
+        //     }
+        // }
     }
 }
 
@@ -908,3 +929,4 @@ void CustomController::joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
     target_vel_x_ = DyrosMath::minmax_cut(0.5*joy->axes[1], -0.2, 0.5);
     target_vel_y_ = DyrosMath::minmax_cut(0.5*joy->axes[0], -0.2, 0.2);
 }
+

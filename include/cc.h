@@ -84,6 +84,7 @@ public:
     Eigen::MatrixXd state_buffer_;
     Eigen::MatrixXd state_mean_;
     Eigen::MatrixXd state_var_;
+    Eigen::MatrixXd state_cur_clipped_;
 
     std::ofstream writeFile;
 
@@ -102,6 +103,7 @@ public:
     Eigen::Matrix<double, MODEL_DOF, 1> torque_spline_;
     Eigen::Matrix<double, MODEL_DOF, 1> torque_rl_;
     Eigen::Matrix<double, MODEL_DOF, 1> torque_bound_;
+    Eigen::Matrix<double, 33, 1> obs_bound_;
 
     Eigen::Matrix<double, MODEL_DOF, MODEL_DOF> kp_;
     Eigen::Matrix<double, MODEL_DOF, MODEL_DOF> kv_;
@@ -114,6 +116,9 @@ public:
     Eigen::Vector3d gravity_vector;
     Eigen::Quaterniond base_link_quat;
     
+    Eigen::Matrix<double, MODEL_DOF, 1> q_dot_cc;
+    Eigen::Matrix<double, MODEL_DOF, 1> q_cc;
+    Eigen::Matrix<double, 6, 1> q_dot_virtual_cc;
 
 
     float start_time_;
@@ -136,7 +141,11 @@ public:
     double target_vel_y_ = 0.0;
     double ang_vel_yaw = 0.0;
 
-    double policy_frequency_ = 250.0; //Hz
+    int frameskip = 20; // policy 100Hz -> 20
+    int framecounter_ = 0;
+
+    int linecount_ = 0;
+    int linecount_output_ = 0;
 
 private:
     RobotData &rd_;
