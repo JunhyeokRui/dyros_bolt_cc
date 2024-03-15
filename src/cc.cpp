@@ -820,7 +820,8 @@ void CustomController::computeSlow() //rui main
              rd_.torque_desired = torque_rl_;
         }
         
-        // rd_.torque_desired.setZero();
+        rd_.torque_desired.setZero();
+        rd_.torque_desired[5] = 0.1;
 
 //ANCHOR - start of output csv file
         // std::ofstream outfile3("/home/dyros/bolt_ws/src/dyros_bolt_cc/output_file_test_3.csv", std::ios::app); // Open in append mode
