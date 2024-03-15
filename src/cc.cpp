@@ -1,7 +1,7 @@
 #include "cc.h"
+#include <yaml-cpp/yaml.h>
 #include <X11/Xlib.h>
 #include <rbdl/Kinematics.h>
-#include <yaml-cpp/yaml.h>
 
 //ANCHOR - for policy test
 #include <fstream>
